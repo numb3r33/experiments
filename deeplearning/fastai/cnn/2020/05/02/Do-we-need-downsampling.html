@@ -166,9 +166,9 @@ window.onload = wrap_img;
 <li class="toc-entry toc-h3"><a href="#Datasets-API">Datasets API </a></li>
 <li class="toc-entry toc-h3"><a href="#VGG-(-4-layer-)-network">VGG ( 4 layer ) network </a></li>
 <li class="toc-entry toc-h3"><a href="#VGG-with-dilated-convolution">VGG with dilated convolution </a></li>
+<li class="toc-entry toc-h3"><a href="#VGG-with-large-kernels">VGG with large kernels </a></li>
 </ul>
 </li>
-<li class="toc-entry toc-h2"><a href="#VGG-with-large-kernels">VGG with large kernels </a></li>
 <li class="toc-entry toc-h2"><a href="#Conclusion">Conclusion </a></li>
 <li class="toc-entry toc-h2"><a href="#Next-steps">Next steps </a></li>
 </ul><!--
@@ -678,9 +678,9 @@ window.onload = wrap_img;
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="VGG-with-large-kernels">
+<h3 id="VGG-with-large-kernels">
 <a class="anchor" href="#VGG-with-large-kernels" aria-hidden="true"><span class="octicon octicon-link"></span></a>VGG with large kernels<a class="anchor-link" href="#VGG-with-large-kernels"> </a>
-</h2>
+</h3>
 </div>
 </div>
 </div>
@@ -740,7 +740,7 @@ window.onload = wrap_img;
 
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">learn</span> <span class="o">=</span> <span class="n">Learner</span><span class="p">(</span><span class="n">dls</span><span class="p">,</span> <span class="n">VGG5_large_filter</span><span class="p">(),</span> <span class="n">loss_func</span><span class="o">=</span><span class="n">CrossEntropyLossFlat</span><span class="p">(),</span> <span class="n">metrics</span><span class="o">=</span><span class="n">accuracy</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">learn</span> <span class="o">=</span> <span class="n">Learner</span><span class="p">(</span><span class="n">dls</span><span class="p">,</span> <span class="n">VGG4_large_filter</span><span class="p">(),</span> <span class="n">loss_func</span><span class="o">=</span><span class="n">CrossEntropyLossFlat</span><span class="p">(),</span> <span class="n">metrics</span><span class="o">=</span><span class="n">accuracy</span><span class="p">)</span>
 </pre></div>
 
     </div>
