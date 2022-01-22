@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Temporal Convolution Networks | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Temporal Convolution Networks" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai" />
+<meta property="og:description" content="What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai" />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/temporal_convolutional_network.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-12-22T00:00:00-06:00" />
+<script type="application/ld+json">
+{"datePublished":"2021-12-22T00:00:00-06:00","dateModified":"2021-12-22T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/temporal_convolutional_network.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html"},"description":"What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai","@type":"BlogPosting","author":{"@type":"Person","name":"Abhishek Sharma"},"url":"https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html","headline":"Temporal Convolution Networks","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Temporal Convolution Networks | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Temporal Convolution Networks" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai" />
+<meta property="og:description" content="What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai" />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/temporal_convolutional_network.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-12-22T00:00:00-06:00" />
+<script type="application/ld+json">
+{"datePublished":"2021-12-22T00:00:00-06:00","dateModified":"2021-12-22T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/temporal_convolutional_network.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html"},"description":"What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai","@type":"BlogPosting","author":{"@type":"Person","name":"Abhishek Sharma"},"url":"https://numb3r33.github.io/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html","headline":"Temporal Convolution Networks","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+<link href="https://unpkg.com/@primer/css/dist/primer.css" rel="stylesheet" />
+<link rel="stylesheet" href="//use.fontawesome.com/releases/v5.0.7/css/all.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" />
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+<script type="text/javascript">
+require.config({
+  paths: {
+    jquery: 'https://code.jquery.com/jquery-3.5.0.min',
+    plotly: 'https://cdn.plot.ly/plotly-latest.min'
+  },
+
+  shim: {
+    plotly: {
+      deps: ['jquery'],
+      exports: 'plotly'
+    }
+  }
+});
+</script>
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head><body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Temporal Convolution Networks</h1><p class="page-description">What is a Temporal Convolution Network? What are its building blocks? A working implementation using fast.ai and tsai</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2021-12-22T00:00:00-06:00" itemprop="datePublished">
+        Dec 22, 2021
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      14 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#math">math</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#fastai">fastai</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#tsai">tsai</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#sequencemodelling">sequencemodelling</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-wrap flex-justify-end">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2021-12-22-temporal-convolutional-networks.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2021-12-22-temporal-convolutional-networks.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2021-12-22-temporal-convolutional-networks.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Objective">Objective </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Temporal-Convolution-Networks?">Temporal Convolution Networks? </a></li>
+<li class="toc-entry toc-h3"><a href="#What-is-a-sequence-modelling-task?">What is a sequence modelling task? </a></li>
+<li class="toc-entry toc-h3"><a href="#What-is-a-1D-convolution?">What is a 1D convolution? </a></li>
+<li class="toc-entry toc-h3"><a href="#What-is-causal-convolution?">What is causal convolution? </a></li>
+<li class="toc-entry toc-h3"><a href="#How-it-all-fits-together?">How it all fits together? </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#Dilated-Convolutions">Dilated Convolutions </a></li>
+<li class="toc-entry toc-h4"><a href="#How-could-we-solve-this-issue?">How could we solve this issue? </a></li>
+<li class="toc-entry toc-h4"><a href="#How-many-layers-would-be-required-for-full-coverage?">How many layers would be required for full coverage? </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h3"><a href="#Temporal-Residual-Block">Temporal Residual Block </a></li>
+<li class="toc-entry toc-h3"><a href="#Residual-Link">Residual Link </a></li>
+<li class="toc-entry toc-h3"><a href="#Conclusion">Conclusion </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#Advantages">Advantages </a></li>
+<li class="toc-entry toc-h4"><a href="#Disadvantages">Disadvantages </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h3"><a href="#Tips-for-implementation">Tips for implementation </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#How-to-prepare-dataset?">How to prepare dataset? </a></li>
+<li class="toc-entry toc-h4"><a href="#Model-implementation">Model implementation </a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2021-12-22-temporal-convolutional-networks.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Objective">
+<a class="anchor" href="#Objective" aria-hidden="true"><span class="octicon octicon-link"></span></a>Objective<a class="anchor-link" href="#Objective"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>sequence modelling had become synonmous with recurrent networks.</li>
+<li>This paper shows that convolutional networks can outperform recurrent networks on some of the tasks.</li>
+<li>paper concludes that common association between sequence modelling and recurrent networks should be reconsidered.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Temporal-Convolution-Networks?">
+<a class="anchor" href="#Temporal-Convolution-Networks?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Temporal Convolution Networks?<a class="anchor-link" href="#Temporal-Convolution-Networks?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>A new general architecture for convolutional sequence prediction.</li>
+<li>This new general architecture is referred to as <code>Temporal Convolutional Networks</code> abbreviated as <code>TCN</code>.</li>
+<li>Convolutions in this architecture are <code>causal</code> which means that there is no information leakage.</li>
+<li>Architecture can take in a sequence of arbitrary length and map it to an output sequence of the same length, just like RNNs. ( But <code>tcn</code> achieves this function not through <code>seq2seq</code> but simply using <code>convolutional</code> layers. )</li>
+<li>Also this paper highlights how we could combine deep networks ( with residual structures ) and dilated convolutions could be used to build long term dependencies. ( ability of an model to look back in past to make future predictions )</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="What-is-a-sequence-modelling-task?">
+<a class="anchor" href="#What-is-a-sequence-modelling-task?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is a sequence modelling task?<a class="anchor-link" href="#What-is-a-sequence-modelling-task?"> </a>
+</h3>
+<blockquote>
+<p>Taken directly from paper</p>
+</blockquote>
+<p>Before defining the network structure, we highlight the nature of the sequence modeling task. Suppose that we are
+given an input sequence $x_0$, . . . , $x_T$ , and wish to predict some corresponding outputs $y_0$, . . . , $y_T$ at each time. The key constraint is that to predict the output $y_t$ for some time t, we are constrained to only use those inputs that have been previously observed:$x_0$, . . . , $x_t$. 
+Formally, a sequence modeling network is any function 
+f : $X_{T +1}$ → $Y_{T +1}$ that produces the mapping</p>
+<p>$y_0$, . . . , $y_T$ = f($x_0$, . . . , $x_T$ ) (1)</p>
+<p>if it satisfies the causal constraint that $y_t$ depends only on $x_0$, . . . , $x_t$ and not on any “future” inputs $x_{t+1}$, . . . , $x_T$. The goal of learning in the sequence modeling setting is to find a network <strong>f</strong> that minimizes some expected loss between the actual outputs and the predictions.</p>
+<p>L($y_0$, . . . , $y_T$ , f($x_0$, . . . , $x_T$)), where the sequences and outputs are drawn according to some distribution.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="What-is-a-1D-convolution?">
+<a class="anchor" href="#What-is-a-1D-convolution?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is a 1D convolution?<a class="anchor-link" href="#What-is-a-1D-convolution?"> </a>
+</h3>
+<p>Before we jump into the paper we must understand what is a <code>1D convolution</code> since it is used in the causal convolutional layer in <code>TCN</code></p>
+<ul>
+<li>
+<strong>1D Convolution</strong> takes in a <strong>3D</strong> tensor as input and outputs a <strong>3D</strong> tensor as output. </li>
+<li>Shape of the input tensor in <code>TCN</code> would have following dimension ( batch_size, input_length, input_size ) and the output tensor has shape ( batch_size, input_length, output_size )</li>
+<li>Each layer in <code>TCN</code> has same <strong>input</strong> and <strong>output</strong> length so only the third dimension would change.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/1d_conv.pbm" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a href="https://www.researchgate.net/figure/Causal-convolution-operation-in-a-1D-convolutional-layer-with-k-3-kernel-size-Input_fig1_337703712">Image courtesy</a></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In the above figure we can notice the follwing</p>
+<ul>
+<li>to compute a single output we need to look at 3 consecutive values of the input sequence, it is because we are using a kernel of size <code>3</code> here.</li>
+<li>to maintain that input and output sequences be of the same size we have to pad the input sequence with zeros on both sides.</li>
+<li>1d convolution is a special case of 2d convolution</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/1d_conv_special_case_2d.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><a href="https://www.aclweb.org/anthology/D14-1181">Image courtesy</a></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>How is 1d convolution a special case of 2d convolution?</strong></p>
+<p>In both time series and NLP, data is laid out in a similar manner, in the figure above we have embedded the words <em>I like this movie very much !</em> into a <code>7 x 5</code> embedding matrix and then we use 1d convolution on this 2D matrix.</p>
+<p>1d convolution is a special case of 2d convolution where <code>kernel size</code> of the 1d convolution is it's height. The width of the kernel is defined by the embedding size, which is <code>5</code> here and it is fixed. So it means that we can only slide vertically and not horizontally which makes it 1D convolution.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="What-is-causal-convolution?">
+<a class="anchor" href="#What-is-causal-convolution?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is causal convolution?<a class="anchor-link" href="#What-is-causal-convolution?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Causality means that an element in the output sequence can only depend on elements that precede it in the input sequence. </li>
+<li>In order to ensure that an output tensor has the same length as the input tensor, we need to do zero padding. </li>
+<li>If we only pad the left side of the input tensor with zeros, then causal convolution is guaranteed. </li>
+<li>$x^{'}_4$ in the figure below is generated by combining $x_2$, $x_3$, $x_4$ which ensures no leakage of information.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/1d_conv.pbm" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>This operation generates $x^{'}_5$ and $x^{'}_6$ which are extraneous and should be removed before passing the output to the next layer. We have to take care of it in the implementation.</strong></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>How many zeros would be required to make sure that the output would be of same length as input?</strong>
+<code>(kernel_size - 1)</code></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="How-it-all-fits-together?">
+<a class="anchor" href="#How-it-all-fits-together?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How it all fits together?<a class="anchor-link" href="#How-it-all-fits-together?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>TCN has two basic principles:</p>
+<ul>
+<li>input and output length of the sequences remain same.</li>
+<li>there can be no leakage from the past.</li>
+</ul>
+<p>To achieve the first point TCN makes use of <code>1D FCN ( Fully Convolutional Network )</code> and to achieve the second point TCN makes use of causal convolutions.</p>
+<p><strong>Disadvantages of the above architecture</strong></p>
+<ul>
+<li>To model long term dependencies, we need a very deep network or very large convolution kernels, neither of which turned out to be particularly feasible in the experiments.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Dilated-Convolutions">
+<a class="anchor" href="#Dilated-Convolutions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dilated Convolutions<a class="anchor-link" href="#Dilated-Convolutions"> </a>
+</h4>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>
+<p>A desirable quality of a the model is that the value of a particular entry in the output depends on all previous entries in the input.</p>
+</li>
+<li>
+<p>This is achieved when the size of the receptive field is equatl to the length of the input</p>
+</li>
+<li>
+<p>We could expand our receptive field when we stack multiple layers together. In the figure below we can see that by stacking two layers with kernel_size 3, we get a receptive field size of 5.</p>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/stack_conv_layers.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In general, the receptive field r of a 1D convolutional network with <code>n</code> layers and kernel_size <code>k</code> is</p>
+<p>$r = 1 + n * ( k - 1 )$</p>
+<p>To know how many layers are needed for full coverage, we can set the receptive field size to input_length <code>l</code> and solve for the number of layers <code>n</code> (non-integer values need to be rounded):</p>
+<p>$\lceil\frac{(l-1)}{(k-1)}\rceil$</p>
+<p>This means that, with a fixed kernel_size, the number of layers required for complete coverage would be linear in input length. This will cause the network to become very deep and very fast, resulting in models with a large number of parameters that take longer to train.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="How-could-we-solve-this-issue?">
+<a class="anchor" href="#How-could-we-solve-this-issue?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How could we solve this issue?<a class="anchor-link" href="#How-could-we-solve-this-issue?"> </a>
+</h4>
+<p>One way to increase the size of the receptive field while keeping the number of layers relatively small is to introduce the concept of <strong>dilation</strong>.</p>
+<p>Dilation in the context of convolutional layers refers to the distance between elements of the input sequence that are used to compute one entry of the output sequence. Therefore, a traditional convolutional layer can be viewed as a diffusion layer dilated by 1, because the input elements of 1 output value are adjacent.</p>
+<p>The image below shows an example of how the receptive field grows when we introduce dilation. The right side image uses a dilation rate <code>r</code> <strong>1</strong> in the first layer with kernel_size <strong>3</strong> which is how a traditional conv layer would work although in the next layer we use <code>r=2</code> which makes sure that we combine input elements that are 2 elements apart when producing output for the next layer and so on.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/dilation.pbm" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>To overcome the problem of number of layers required for covering the entire input length we must progressively increase the <code>dilation rate</code> over multiple layers.</p>
+<p>This problem can be solved by exponentially increasing the value of <code>d</code> as we move up in the layer. To do this, we choose a constant dilation_base integer <code>b</code> that will allow us to calculate the dilation <code>d</code> for a particular layer based on the number of layers i under it, i.e. $d = b^i$.</p>
+<p>The figure below shows a network with an input_length of 10, a kernel_size of 3, and a dilation_base of 2, which would result in a complete coverage of the 3 dilated convolutional layers.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/dilation_coverage.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Here we can see that the all input values are used to produce the last value in the output layer. With the above mentioned setup we could have an input of length <code>15</code> while maintaining the full coverage.</p>
+<p><strong>How did we calculate that the receptive width is 15?</strong></p>
+<ul>
+<li>When a layer is added to the architecture the receptive field is increased by $d*(k-1)$</li>
+<li>So if we have n layers with kernel_size k and dilation base rate as b then receptive width is calculated as</li>
+</ul>
+<p>$w=1+(k-1)\frac{b^n-1}{b-1}$</p>
+<p>but depending on values of <code>b</code> and <code>k</code> the architecture could have many holes in it.</p>
+<p><strong>What does that mean?</strong></p>
+<p><img src="/experiments/images/copied_from_nb/images/dilation_with_holes.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Here we can see not all <strong>inputs</strong> are used to compute the last value of the output, even though <code>w</code> is greater than the input size. To fix this we would have to either increase the kernel size or decrease the dilation rate from <code>3</code> to <code>2</code>. In general we must ensure that kernel_size is atleast dilation rate to avoid such cases.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="How-many-layers-would-be-required-for-full-coverage?">
+<a class="anchor" href="#How-many-layers-would-be-required-for-full-coverage?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How many layers would be required for full coverage?<a class="anchor-link" href="#How-many-layers-would-be-required-for-full-coverage?"> </a>
+</h4>
+<p>Given a kernel size k, a dilation base b where k ≥ b, and an input length l, in order to achieve full coverage following condition must be satisfied</p>
+<p>$1+(k-1)\frac{b^n-1}{b-1}\geq l$, then</p>
+<p>$n=\lceil\log_b(\frac{(l-1)*(b-1)}{k-1}+1)\rceil$</p>
+<p>Now number of layers is lograthmic in input layer length <code>l</code> which is what we wanted. This is a significant improvement that can be achieved without sacrificing receptive field coverage.</p>
+<p>Now, the only thing that needs to be specified is the number of zero-padding items required for each layer. Assuming that the dilation expansion base is b, the kernel size is k, and there are i layers below the current layer, the number p of zero-padding items required by the current layer is calculated as follows:</p>
+<p>$p=b^i*(k-1)$</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Temporal-Residual-Block">
+<a class="anchor" href="#Temporal-Residual-Block" aria-hidden="true"><span class="octicon octicon-link"></span></a>Temporal Residual Block<a class="anchor-link" href="#Temporal-Residual-Block"> </a>
+</h3>
+<p>Now let's discuss the basic building blocks of <code>TCN</code> network.</p>
+<p><img src="/experiments/images/copied_from_nb/images/tcn_residual_block.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Residual links have proven to be an effective way to train deep networks, which allow the network to pass information in a cross-layer manner. </li>
+<li>This paper constructs a residual block to replace one layer of convolution. As shown in the figure above, a residual block contains two layers of convolution and nonlinear mapping, and WeightNorm and Dropout are added to each layer to regularize the network.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/causal_tcn.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>
+<p>Each hidden layer has the same length as the input layer, and is padded with zeros to ensure subsequent layers have the same length.</p>
+</li>
+<li>
+<p>For the output at time t, the causal convolution (convolution with causal constraints) uses the input at time t and the previous layer at an earlier time (see the blue line connection at the bottom of the figure above).</p>
+</li>
+<li>
+<p>Causal convolution is not a new idea, but the paper incorporates very deep networks to allow for long-term efficient histories.</p>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Residual-Link">
+<a class="anchor" href="#Residual-Link" aria-hidden="true"><span class="octicon octicon-link"></span></a>Residual Link<a class="anchor-link" href="#Residual-Link"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/residual_link.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Residual blocks (originally from ResNet) has repeatedly shown to benefit very deep networks.</li>
+<li>Since the receptive field of a TCN depends on the network depth <code>n</code> as well as the convolution kernel size <code>k</code> and dilation factor <code>d</code>, it becomes very important to stabilize deeper and larger TCNs.</li>
+<li>Predictions may depend on long historical values and high-dimensional input sequences of size $2^{12}$, a network of up to 12 layers may be required.</li>
+<li>In standard ResNet, the input is directly added to the output of the residual function, while in TCN the input and output can have different widths. To account for the difference in input-output width, an additional <code>1x1</code> convolution is used to ensure that element-wise addition receives tensors of the same shape.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/res_blk.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Conclusion">
+<a class="anchor" href="#Conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclusion<a class="anchor-link" href="#Conclusion"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>The innovation in the TCN model is to sort out how to use causal and dilated convolutions to solve the sequence modelling task. </li>
+<li>Causal and Dilated convolutions have already been proposed earlier but this paper highlights how they could be combined together for sequence modelling tasks</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Advantages">
+<a class="anchor" href="#Advantages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Advantages<a class="anchor-link" href="#Advantages"> </a>
+</h4>
+<ul>
+<li>
+<p>Parallelism. When given a sentence, TCN can process the sentence in parallel without the need for sequential processing like RNN.</p>
+</li>
+<li>
+<p>Flexible receptive field. The size of the receptive field of TCN is determined by the number of layers, the size of the convolution kernel, and the expansion coefficient. It can be flexibly customized according to different characteristics of different tasks.</p>
+</li>
+<li>
+<p>Stable gradient. RNN often has the problems of vanishing gradients and gradient explosion, which are mainly caused by sharing parameters in different time periods. Like traditional convolutional neural networks, TCN does not have the problem of gradient disappearance and explosion.</p>
+</li>
+<li>
+<p>Lower memory requirements. When RNN is used, it needs to save the information of each step, which will occupy a lot of memory. The convolution kernel of TCN is shared in one layer, and hence lower memory usage.</p>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Disadvantages">
+<a class="anchor" href="#Disadvantages" aria-hidden="true"><span class="octicon octicon-link"></span></a>Disadvantages<a class="anchor-link" href="#Disadvantages"> </a>
+</h4>
+<ul>
+<li>
+<p>TCN may not be so adaptable in transfer learning. This is because the amount of historical information required for model predictions may be different in different domains. Therefore, when migrating a model from a problem that requires less memory information to a problem that requires longer memory, TCN may perform poorly because its receptive field is not large enough.</p>
+</li>
+<li>
+<p>The TCN described in the paper is also a one-way structure. In tasks such as speech recognition and speech synthesis, the pure one-way structure is quite useful. However, most of the texts use a bidirectional structure. Of course, it is easy to expand the TCN into a bidirectional structure. Instead of using causal convolution, the traditional convolution structure can be used.</p>
+</li>
+<li>
+<p>TCN is a variant of convolutional neural network after all. Although the receptive field can be expanded by using dilated convolution, it is still limited. Compared with Transformer, the feature that can capture relevant information of any length is still poor. The application of TCN to text remains to be tested.</p>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Tips-for-implementation">
+<a class="anchor" href="#Tips-for-implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Tips for implementation<a class="anchor-link" href="#Tips-for-implementation"> </a>
+</h3>
+<p>Next we would highlight things to keep in mind if you plan to implement the paper</p>
+<ul>
+<li>After the convolution, the size of the output data after the convolution is greater than the size of the input data</li>
+<li>This is caused to padding on both sides so we chomp off padding from right side to get the desired value</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We have taken this (<a href="https://github.com/locuslab/TCN/blob/2221de3323/TCN/tcn.py">https://github.com/locuslab/TCN/blob/2221de3323/TCN/tcn.py</a>) implementation of TCN and implemented in fast.ai and tsai to demonstrate how TCN could be used for sequence modelling.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="How-to-prepare-dataset?">
+<a class="anchor" href="#How-to-prepare-dataset?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How to prepare dataset?<a class="anchor-link" href="#How-to-prepare-dataset?"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">tsai.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="n">computer_setup</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/setup_info.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>We are going to select appliances energy dataset recently released by Monash, UEA &amp; UCR Time Series Extrinsic Regression Repository (2020)</strong></p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">dsid</span>         <span class="o">=</span> <span class="s1">'AppliancesEnergy'</span> 
+<span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">splits</span> <span class="o">=</span> <span class="n">get_regression_data</span><span class="p">(</span><span class="n">dsid</span><span class="p">,</span> <span class="n">split_data</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">y</span><span class="p">[:</span><span class="mi">10</span><span class="p">]</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/setup_info.png" alt=""></p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">check_data</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">splits</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/load_data.png" alt=""></p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">tfms</span>  <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">[</span><span class="n">TSRegression</span><span class="p">()]]</span>
+<span class="n">batch_tfms</span> <span class="o">=</span> <span class="n">TSStandardize</span><span class="p">(</span><span class="n">by_sample</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">by_var</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">dls</span> <span class="o">=</span> <span class="n">get_ts_dls</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">splits</span><span class="o">=</span><span class="n">splits</span><span class="p">,</span> <span class="n">tfms</span><span class="o">=</span><span class="n">tfms</span><span class="p">,</span> <span class="n">batch_tfms</span><span class="o">=</span><span class="n">batch_tfms</span><span class="p">,</span> <span class="n">bs</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+<span class="n">dls</span><span class="o">.</span><span class="n">one_batch</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/data_split.png" alt=""></p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">dls</span><span class="o">.</span><span class="n">show_batch</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/data_loader.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Model-implementation">
+<a class="anchor" href="#Model-implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Model implementation<a class="anchor-link" href="#Model-implementation"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">fastai.torch_basics</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">fastai.tabular.core</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="kn">from</span> <span class="nn">torch.nn.utils</span> <span class="kn">import</span> <span class="n">weight_norm</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">Chomp1d</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chomp_size</span><span class="p">):</span>
+        <span class="n">store_attr</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="p">:</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">chomp_size</span><span class="p">]</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>
+
+    
+<span class="k">def</span> <span class="nf">get_conv_block</span><span class="p">(</span><span class="n">n_inputs</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="n">kernel_size</span><span class="p">,</span> <span class="n">stride</span><span class="p">,</span> <span class="n">padding</span><span class="p">,</span> <span class="n">dilation</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
+    <span class="n">conv</span>  <span class="o">=</span> <span class="n">weight_norm</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Conv1d</span><span class="p">(</span><span class="n">n_inputs</span><span class="p">,</span> 
+                                  <span class="n">n_outputs</span><span class="p">,</span> 
+                                  <span class="n">kernel_size</span><span class="p">,</span>
+                                  <span class="n">stride</span><span class="o">=</span><span class="n">stride</span><span class="p">,</span> 
+                                  <span class="n">padding</span><span class="o">=</span><span class="n">padding</span><span class="p">,</span>
+                                  <span class="n">dilation</span><span class="o">=</span><span class="n">dilation</span>
+                                  <span class="p">))</span>
+    <span class="n">chomp</span> <span class="o">=</span> <span class="n">Chomp1d</span><span class="p">(</span><span class="n">padding</span><span class="p">)</span>
+    <span class="n">relu</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+    <span class="n">drop</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">conv</span><span class="p">,</span> <span class="n">chomp</span><span class="p">,</span>
+                           <span class="n">relu</span><span class="p">,</span> <span class="n">drop</span>
+                        <span class="p">))</span>
+    
+<span class="k">class</span> <span class="nc">TemporalBlock</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_inputs</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="n">kernel_size</span><span class="p">,</span> <span class="n">stride</span><span class="p">,</span> <span class="n">dilation</span><span class="p">,</span> <span class="n">padding</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.5</span><span class="p">):</span>
+        <span class="n">store_attr</span><span class="p">()</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_conv_blk</span> <span class="o">=</span> <span class="n">get_conv_block</span><span class="p">(</span><span class="n">n_inputs</span><span class="p">,</span>
+                                          <span class="n">n_outputs</span><span class="p">,</span>
+                                          <span class="n">kernel_size</span><span class="p">,</span>
+                                          <span class="n">stride</span><span class="p">,</span>
+                                          <span class="n">padding</span><span class="p">,</span>
+                                          <span class="n">dilation</span><span class="p">,</span>
+                                          <span class="n">dropout</span>
+                                         <span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_conv_blk</span> <span class="o">=</span> <span class="n">get_conv_block</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">,</span>
+                                           <span class="n">n_outputs</span><span class="p">,</span>
+                                           <span class="n">kernel_size</span><span class="p">,</span>
+                                           <span class="n">stride</span><span class="p">,</span>
+                                           <span class="n">padding</span><span class="p">,</span>
+                                           <span class="n">dilation</span><span class="p">,</span>
+                                           <span class="n">dropout</span>
+                                          <span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">net</span>             <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">in_conv_blk</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_conv_blk</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">downsample_conv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Conv1d</span><span class="p">(</span><span class="n">n_inputs</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">n_inputs</span> <span class="o">!=</span> <span class="n">n_outputs</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu</span>            <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_weights</span><span class="p">()</span>
+        
+    <span class="k">def</span> <span class="nf">init_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># 0 index represents the convolutional layer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">in_conv_blk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_conv_blk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">downsample_conv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">downsample_conv</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">net</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">x</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">downsample_conv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">downsample_conv</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">out</span> <span class="o">+</span> <span class="n">res</span><span class="p">)</span>
+    
+<span class="k">class</span> <span class="nc">TemporalConvNet</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_inputs</span><span class="p">,</span> <span class="n">num_channels</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span><span class="p">):</span>
+        <span class="n">layers</span>     <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">num_levels</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">num_channels</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_levels</span><span class="p">):</span>
+            <span class="n">dilation_size</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">**</span> <span class="n">i</span>
+            <span class="n">in_channels</span>   <span class="o">=</span> <span class="n">num_inputs</span> <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">num_channels</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">out_channels</span>  <span class="o">=</span> <span class="n">num_channels</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            
+            <span class="n">layers</span>       <span class="o">+=</span> <span class="p">[</span><span class="n">TemporalBlock</span><span class="p">(</span><span class="n">in_channels</span><span class="p">,</span> 
+                                           <span class="n">out_channels</span><span class="p">,</span> 
+                                           <span class="n">kernel_size</span><span class="p">,</span> 
+                                           <span class="n">stride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                                           <span class="n">dilation</span><span class="o">=</span><span class="n">dilation_size</span><span class="p">,</span>
+                                           <span class="n">padding</span><span class="o">=</span><span class="p">(</span><span class="n">kernel_size</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dilation_size</span><span class="p">,</span> 
+                                           <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span>
+                                          <span class="p">)</span>
+                            <span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">network</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">layers</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">network</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    
+<span class="k">class</span> <span class="nc">TCN</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_size</span><span class="p">,</span> <span class="n">output_size</span><span class="p">,</span> <span class="n">num_channels</span><span class="p">,</span> <span class="n">kernel_size</span><span class="p">,</span> <span class="n">dropout</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tcn</span>    <span class="o">=</span> <span class="n">TemporalConvNet</span><span class="p">(</span><span class="n">input_size</span><span class="p">,</span> <span class="n">num_channels</span><span class="p">,</span> <span class="n">kernel_size</span><span class="o">=</span><span class="n">kernel_size</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">num_channels</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">output_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">init_weights</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">init_weights</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">normal_</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">y1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tcn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">linear</span><span class="p">(</span><span class="n">y1</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">TCN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+            <span class="n">output_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">num_channels</span><span class="o">=</span><span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span>
+            <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span>
+           <span class="p">)</span>
+
+<span class="n">learn</span> <span class="o">=</span> <span class="n">Learner</span><span class="p">(</span><span class="n">dls</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">mae</span><span class="p">,</span> <span class="n">rmse</span><span class="p">],</span> <span class="n">cbs</span><span class="o">=</span><span class="n">ShowGraph</span><span class="p">())</span>
+<span class="n">learn</span><span class="o">.</span><span class="n">lr_find</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/tcn_lr_finder.png" alt=""></p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">model</span>    <span class="o">=</span> <span class="n">TCN</span><span class="p">(</span><span class="n">input_size</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+               <span class="n">output_size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+               <span class="n">num_channels</span><span class="o">=</span><span class="p">[</span><span class="mi">24</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">64</span><span class="p">],</span>
+               <span class="n">kernel_size</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+               <span class="n">dropout</span><span class="o">=</span><span class="mf">0.2</span>
+              <span class="p">)</span>
+
+<span class="n">learn</span> <span class="o">=</span> <span class="n">Learner</span><span class="p">(</span><span class="n">dls</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">mae</span><span class="p">,</span> <span class="n">rmse</span><span class="p">],</span> <span class="n">cbs</span><span class="o">=</span><span class="n">ShowGraph</span><span class="p">())</span>
+<span class="n">learn</span><span class="o">.</span><span class="n">fit_one_cycle</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mf">8e-4</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/tcn_loss_pbar.png" alt="">
+<img src="/experiments/images/copied_from_nb/images/tcn_loss_pbar1.png" alt="">
+<img src="/experiments/images/copied_from_nb/images/tcn_loss_pbar2.png" alt="">
+<img src="/experiments/images/copied_from_nb/images/tcn_train_valid_losses.png" alt=""></p>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/math/fastai/tsai/sequencemodelling/2021/12/22/temporal-convolutional-networks.html" hidden></a>
+</article>
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
