@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>AEDA ( An Easier Data Augmentation Technique for Text Classification ) | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="AEDA ( An Easier Data Augmentation Technique for Text Classification )" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="A new data augmentation method proposed for text classification." />
+<meta property="og:description" content="A new data augmentation method proposed for text classification." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/math/fastai/nlp/2022/01/31/aeda-text-augmentation.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/math/fastai/nlp/2022/01/31/aeda-text-augmentation.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/aeda.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-01-31T00:00:00-06:00" />
+<script type="application/ld+json">
+{"url":"https://numb3r33.github.io/experiments/deeplearning/math/fastai/nlp/2022/01/31/aeda-text-augmentation.html","@type":"BlogPosting","headline":"AEDA ( An Easier Data Augmentation Technique for Text Classification )","dateModified":"2022-01-31T00:00:00-06:00","datePublished":"2022-01-31T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/aeda.png","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/math/fastai/nlp/2022/01/31/aeda-text-augmentation.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"A new data augmentation method proposed for text classification.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">AEDA ( An Easier Data Augmentation Technique for Text Classification )</h1><p class="page-description">A new data augmentation method proposed for text classification.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2022-01-31T00:00:00-06:00" itemprop="datePublished">
+        Jan 31, 2022
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      6 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#math">math</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#fastai">fastai</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#nlp">nlp</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2022-01-31-aeda-text-augmentation.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2022-01-31-aeda-text-augmentation.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2022-01-31-aeda-text-augmentation.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Paper-resources">Paper resources </a></li>
+<li class="toc-entry toc-h2"><a href="#Objective">Objective </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Why-do-we-need-augmentations?">Why do we need augmentations? </a></li>
+<li class="toc-entry toc-h3"><a href="#What-are-the-different-kind-of-augmentations-used-in-NLP?">What are the different kind of augmentations used in NLP? </a></li>
+<li class="toc-entry toc-h3"><a href="#What-is-the-novel-idea-presented-in-the-paper?">What is the novel idea presented in the paper? </a></li>
+<li class="toc-entry toc-h3"><a href="#Can-you-share-an-example-of-how-this-augmentation-would-work?">Can you share an example of how this augmentation would work? </a></li>
+<li class="toc-entry toc-h3"><a href="#How-many-punctuation-marks-are-inserted?">How many punctuation marks are inserted? </a></li>
+<li class="toc-entry toc-h3"><a href="#Why-one-third-of-the-sentence-length?">Why one-third of the sentence length? </a></li>
+<li class="toc-entry toc-h3"><a href="#At-which-positions-should-we-insert-these-punctuation-marks?">At which positions should we insert these punctuation marks? </a></li>
+<li class="toc-entry toc-h3"><a href="#What-are-the-different-punctuation-marks-used?">What are the different punctuation marks used? </a></li>
+<li class="toc-entry toc-h3"><a href="#Why-does-AEDA-work-better-compared-to-EDA?">Why does AEDA work better compared to EDA? </a></li>
+<li class="toc-entry toc-h3"><a href="#Implementation">Implementation </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#Dataset">Dataset </a></li>
+<li class="toc-entry toc-h4"><a href="#Load-libraries">Load libraries </a></li>
+<li class="toc-entry toc-h4"><a href="#Define-paths-and-constants">Define paths and constants </a></li>
+<li class="toc-entry toc-h4"><a href="#Load-dataset">Load dataset </a></li>
+<li class="toc-entry toc-h4"><a href="#Class-Distribution">Class Distribution </a></li>
+<li class="toc-entry toc-h4"><a href="#Splitter">Splitter </a></li>
+<li class="toc-entry toc-h4"><a href="#Tokenize-the-training-dataset">Tokenize the training dataset </a></li>
+<li class="toc-entry toc-h4"><a href="#Using-fast.ai-Pipeline-to-construct-Dataset">Using fast.ai Pipeline to construct Dataset </a></li>
+<li class="toc-entry toc-h4"><a href="#AEDA-data-augmentation-as-fast.ai-transform">AEDA data augmentation as fast.ai transform </a></li>
+<li class="toc-entry toc-h4"><a href="#Construct-dataloaders">Construct dataloaders </a></li>
+<li class="toc-entry toc-h4"><a href="#Using-the-classic-TextCNN-model-introduced-by-Yoon-Kim,-paper">Using the classic TextCNN model introduced by Yoon Kim, paper </a></li>
+<li class="toc-entry toc-h4"><a href="#Define-learner">Define learner </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h3"><a href="#References">References </a></li>
+</ul>
+</li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2022-01-31-aeda-text-augmentation.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Paper-resources">
+<a class="anchor" href="#Paper-resources" aria-hidden="true"><span class="octicon octicon-link"></span></a>Paper resources<a class="anchor-link" href="#Paper-resources"> </a>
+</h2>
+<ul>
+<li><a href="https://arxiv.org/pdf/2108.13230.pdf">paper</a></li>
+<li><a href="https://github.com/akkarimi/aeda_nlp/">code</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Objective">
+<a class="anchor" href="#Objective" aria-hidden="true"><span class="octicon octicon-link"></span></a>Objective<a class="anchor-link" href="#Objective"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>This paper proposes a new data augmentation technique for text classification task.</li>
+<li>It also compares the performance of this augmentation technique with <a href="https://arxiv.org/abs/1901.11196">EDA: Easy Data Augmentation Techniques for Boosting Performance on Text Classification Tasks</a> and concludes that their method is simpler and produces better results.</li>
+<li>In this experiment we will try to implement this data augmentation using <code>fastai</code> on a text classification task.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Why-do-we-need-augmentations?">
+<a class="anchor" href="#Why-do-we-need-augmentations?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why do we need augmentations?<a class="anchor-link" href="#Why-do-we-need-augmentations?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>To have better generalizability, we need more and more comprehensive datasets but collection of these datasets and labelling is a laborious task so augmentation becomes an attractive method to introduce more examples for model to consume.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="What-are-the-different-kind-of-augmentations-used-in-NLP?">
+<a class="anchor" href="#What-are-the-different-kind-of-augmentations-used-in-NLP?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What are the different kind of augmentations used in NLP?<a class="anchor-link" href="#What-are-the-different-kind-of-augmentations-used-in-NLP?"> </a>
+</h3>
+<ul>
+<li>For improving machine translation task, researchers have tried substituting common words with rare words thus providing more context for rare words.</li>
+<li>Some researchers have tried replacing words with their synonyms for tweet classification.</li>
+<li>Randomly swap two words in a sentence.</li>
+<li>Randomly delete a word in the sentence and many more.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="What-is-the-novel-idea-presented-in-the-paper?">
+<a class="anchor" href="#What-is-the-novel-idea-presented-in-the-paper?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is the novel idea presented in the paper?<a class="anchor-link" href="#What-is-the-novel-idea-presented-in-the-paper?"> </a>
+</h3>
+<p><code>AEDA</code> method proposes randomly inserting some punctuation marks as an augmentation to introduce noise. The authors report improvement performance in <strong>text classification</strong> tasks.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Can-you-share-an-example-of-how-this-augmentation-would-work?">
+<a class="anchor" href="#Can-you-share-an-example-of-how-this-augmentation-would-work?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Can you share an example of how this augmentation would work?<a class="anchor-link" href="#Can-you-share-an-example-of-how-this-augmentation-would-work?"> </a>
+</h3>
+<p><strong>Original Text</strong>:</p>
+<p>Appropriate given recent events</p>
+<hr>
+<p><strong>Augmented Text</strong>:</p>
+<p>Appropriate given ; recent events</p>
+<p>Appropriate ? given : recent events</p>
+<p>Appropriate given , recent events
+```</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="How-many-punctuation-marks-are-inserted?">
+<a class="anchor" href="#How-many-punctuation-marks-are-inserted?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How many punctuation marks are inserted?<a class="anchor-link" href="#How-many-punctuation-marks-are-inserted?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Between 1 to <code>n/3</code> where <code>n</code> represents the length of the sentence.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Why-one-third-of-the-sentence-length?">
+<a class="anchor" href="#Why-one-third-of-the-sentence-length?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why one-third of the sentence length?<a class="anchor-link" href="#Why-one-third-of-the-sentence-length?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The authors mention that they want to increase the complexity of the sentence but doesn't want to add too many punctuation marks which would interfere with the semantic meaning of the sentence.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="At-which-positions-should-we-insert-these-punctuation-marks?">
+<a class="anchor" href="#At-which-positions-should-we-insert-these-punctuation-marks?" aria-hidden="true"><span class="octicon octicon-link"></span></a>At which positions should we insert these punctuation marks?<a class="anchor-link" href="#At-which-positions-should-we-insert-these-punctuation-marks?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>The authors inserted them at random positions in the sentence.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="What-are-the-different-punctuation-marks-used?">
+<a class="anchor" href="#What-are-the-different-punctuation-marks-used?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What are the different punctuation marks used?<a class="anchor-link" href="#What-are-the-different-punctuation-marks-used?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><code>. ; ? : ! ,</code></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Why-does-AEDA-work-better-compared-to-EDA?">
+<a class="anchor" href="#Why-does-AEDA-work-better-compared-to-EDA?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why does AEDA work better compared to EDA?<a class="anchor-link" href="#Why-does-AEDA-work-better-compared-to-EDA?"> </a>
+</h3>
+<ul>
+<li>EDA proposes synonym replacement, random replacement, random insertion and random deletion. These modifications could change the semantic meaning of the text.</li>
+<li>Whereas AEDA just introduces punctuation marks which would only introduce noise and would not mess the semantic meaning or the word ordering.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Implementation">
+<a class="anchor" href="#Implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Implementation<a class="anchor-link" href="#Implementation"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>We would be using <a href="https://github.com/fastai">fastai</a> to implement this augmentation.</li>
+<li>The authors have released the <a href="https://github.com/akkarimi/aeda_nlp/">code</a> as well which we would using.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Dataset">
+<a class="anchor" href="#Dataset" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dataset<a class="anchor-link" href="#Dataset"> </a>
+</h4>
+<ul>
+<li>We will be using this dataset used in this challenge where the goal is to predict the subreddit of a subreddit post based on their title and their description. This is an example of <code>text categorization</code> / <code>text classification</code> task</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Load-libraries">
+<a class="anchor" href="#Load-libraries" aria-hidden="true"><span class="octicon octicon-link"></span></a>Load libraries<a class="anchor-link" href="#Load-libraries"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">numpy</span>  <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">tqdm</span>    <span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span> <span class="nn">fastai.text.all</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">SEED</span> <span class="o">=</span> <span class="mi">41</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Define-paths-and-constants">
+<a class="anchor" href="#Define-paths-and-constants" aria-hidden="true"><span class="octicon octicon-link"></span></a>Define paths and constants<a class="anchor-link" href="#Define-paths-and-constants"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">BASE_DIR</span>      <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s1">'~/data/dl_nlp'</span><span class="p">)</span>
+<span class="n">RAW_DATA_PATH</span> <span class="o">=</span> <span class="n">BASE_DIR</span> <span class="o">/</span> <span class="s1">'data'</span>
+<span class="n">OUTPUT_DIR</span>    <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s1">'~/data/dl_nlp/outputs'</span><span class="p">)</span>
+
+<span class="n">PUNCTUATIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'.'</span><span class="p">,</span> <span class="s1">','</span><span class="p">,</span> <span class="s1">'!'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">,</span> <span class="s1">';'</span><span class="p">,</span> <span class="s1">':'</span><span class="p">]</span>
+<span class="n">PUNC_RATIO</span>   <span class="o">=</span> <span class="mf">0.3</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Load-dataset">
+<a class="anchor" href="#Load-dataset" aria-hidden="true"><span class="octicon octicon-link"></span></a>Load dataset<a class="anchor-link" href="#Load-dataset"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">train</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">RAW_DATA_PATH</span> <span class="o">/</span> <span class="s1">'train.csv'</span><span class="p">)</span>
+<span class="n">train</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/aeda_df.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Text column represents <code>title</code> as well as <code>description</code>.</li>
+<li>Subreddit column represents our <code>label</code>.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Class-Distribution">
+<a class="anchor" href="#Class-Distribution" aria-hidden="true"><span class="octicon octicon-link"></span></a>Class Distribution<a class="anchor-link" href="#Class-Distribution"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">train</span><span class="o">.</span><span class="n">subreddit</span><span class="o">.</span><span class="n">value_counts</span><span class="p">(</span><span class="n">normalize</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/aeda_cl_dist.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>We have multiple categories that our model needs to get right.</li>
+<li>Most of the categories have similar percentage of data points in the dataset, with only <code>SubredditSimulator</code> category having less training examples.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Splitter">
+<a class="anchor" href="#Splitter" aria-hidden="true"><span class="octicon octicon-link"></span></a>Splitter<a class="anchor-link" href="#Splitter"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">splits</span> <span class="o">=</span> <span class="n">RandomSplitter</span><span class="p">(</span><span class="n">seed</span><span class="o">=</span><span class="mi">41</span><span class="p">)(</span><span class="n">train</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Create a splitting strategy.</li>
+<li>Here we plan to split our training dataframe randomly into training ( 80% ) and validation ( 20% ) datasets.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Tokenize-the-training-dataset">
+<a class="anchor" href="#Tokenize-the-training-dataset" aria-hidden="true"><span class="octicon octicon-link"></span></a>Tokenize the training dataset<a class="anchor-link" href="#Tokenize-the-training-dataset"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df_tok</span><span class="p">,</span> <span class="n">cnt</span> <span class="o">=</span> <span class="n">tokenize_df</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">splits</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">text_cols</span><span class="o">=</span><span class="s1">'text'</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Fast.ai provides a method to tokenize our dataset.</li>
+<li>Here we only passing our training examples as the corpus for tokenizer to create vocabulary.</li>
+<li>We could pass in different types of tokenizers here but by default it works with <code>WordTokenizer</code>.</li>
+</ul>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">df_tok</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/aeda_df_tok.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Here we could see that it has split our <code>text</code> string into tokens and created an additional column called <code>text_length</code> describing the length.</li>
+<li>It has also added some library specific tokens like <code>xxbos</code>, <code>xxmaj</code> etc. <code>xxbos</code> represents beginning of the sentence token. For more details please refer to <a href="https://docs.fast.ai/">fast.ai</a>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">cnt</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/aeda_cnt.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Here is a snapshot of the vocabulary constructed by the <code>tokenize_df</code> method.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Using-fast.ai-Pipeline-to-construct-Dataset">
+<a class="anchor" href="#Using-fast.ai-Pipeline-to-construct-Dataset" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using <code>fast.ai</code> Pipeline to construct Dataset<a class="anchor-link" href="#Using-fast.ai-Pipeline-to-construct-Dataset"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">text_pipe</span>   <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">'text'</span><span class="p">),</span> <span class="n">Tokenizer</span><span class="o">.</span><span class="n">from_df</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">Numericalize</span><span class="p">(</span><span class="n">vocab</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">cnt</span><span class="o">.</span><span class="n">keys</span><span class="p">()))])</span>
+
+<span class="n">lbl_pipe</span>    <span class="o">=</span> <span class="n">Pipeline</span><span class="p">([</span><span class="n">attrgetter</span><span class="p">(</span><span class="s1">'subreddit'</span><span class="p">),</span> <span class="n">Categorize</span><span class="p">()])</span>
+<span class="n">lbl_pipe</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">train</span><span class="o">.</span><span class="n">subreddit</span><span class="p">)</span>
+
+<span class="n">dsets</span>       <span class="o">=</span> <span class="n">Datasets</span><span class="p">(</span><span class="n">train</span><span class="p">,</span> <span class="p">[</span><span class="n">text_pipe</span><span class="p">,</span> <span class="n">lbl_pipe</span><span class="p">],</span> <span class="n">splits</span><span class="o">=</span><span class="n">splits</span><span class="p">,</span> <span class="n">dl_type</span><span class="o">=</span><span class="n">SortedDL</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Here we use <code>Pipeline</code> provided by <code>fast.ai</code> to put together different transforms we want to run on our dataframe.</li>
+<li>
+<code>text_pipe</code> represents the Pipeline that we would like to run on our <code>text</code> column in the dataframe.</li>
+<li>
+<code>lbl_pipe</code> represents the Pipeline that we would like to run on our <code>subreddit</code> column in the dataframe.</li>
+<li>
+<code>Numericalize</code> transform takes in our vocabulary and converts the tokens to ids.</li>
+<li>
+<code>Categorize</code> transforms converts our labels to categories.</li>
+<li>
+<code>Tokenizer.from_df</code> transform tokenizes the text stored in our dataframe.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="AEDA-data-augmentation-as-fast.ai-transform">
+<a class="anchor" href="#AEDA-data-augmentation-as-fast.ai-transform" aria-hidden="true"><span class="octicon octicon-link"></span></a>AEDA data augmentation as <code>fast.ai</code> transform<a class="anchor-link" href="#AEDA-data-augmentation-as-fast.ai-transform"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="n">PUNCTUATIONS</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'.'</span><span class="p">,</span> <span class="s1">','</span><span class="p">,</span> <span class="s1">'!'</span><span class="p">,</span> <span class="s1">'?'</span><span class="p">,</span> <span class="s1">';'</span><span class="p">,</span> <span class="s1">':'</span><span class="p">]</span>
+<span class="n">PUNC_RATIO</span>   <span class="o">=</span> <span class="mf">0.3</span>
+
+<span class="k">class</span> <span class="nc">InsertPunctuation</span><span class="p">(</span><span class="n">Transform</span><span class="p">):</span>
+    <span class="n">split_idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">o2i</span><span class="p">,</span> <span class="n">punc_ratio</span><span class="o">=</span><span class="n">PUNC_RATIO</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">o2i</span>        <span class="o">=</span> <span class="n">o2i</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">punc_ratio</span> <span class="o">=</span> <span class="n">punc_ratio</span>
+        
+    <span class="k">def</span> <span class="nf">encodes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">words</span><span class="p">:</span><span class="n">TensorText</span><span class="p">):</span>
+        <span class="n">new_line</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">q</span>  <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">punc_ratio</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">qs</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">words</span><span class="p">)),</span> <span class="n">q</span><span class="p">)</span>
+            
+        <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">word</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">words</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">qs</span><span class="p">:</span>
+                <span class="n">new_line</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">o2i</span><span class="p">[</span><span class="n">PUNCTUATIONS</span><span class="p">[</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">PUNCTUATIONS</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)]])</span>
+                <span class="n">new_line</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">word</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">new_line</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">word</span><span class="p">))</span>
+        
+        <span class="k">return</span> <span class="n">TensorText</span><span class="p">(</span><span class="n">new_line</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>We have taken the implementation from the github shared by the authors and created a <code>fast.ai</code> tranform that would takes in the <code>PUNC_RATIO</code> and <code>o2i</code> as parameters and inserts punctuations at random positions in the sentence.</li>
+<li>
+<code>PUNC_RATIO</code> by default takes a value of <code>0.3</code> which represents the <code>1/3rd</code> of the sentence length mentioned in the paper.</li>
+<li>
+<code>o2i</code> is mapping between token to id.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Construct-dataloaders">
+<a class="anchor" href="#Construct-dataloaders" aria-hidden="true"><span class="octicon octicon-link"></span></a>Construct dataloaders<a class="anchor-link" href="#Construct-dataloaders"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">seq_len</span>    <span class="o">=</span> <span class="mi">72</span>
+<span class="n">dls_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+              <span class="s1">'after_item'</span>  <span class="p">:</span> <span class="n">InsertPunctuation</span><span class="p">(</span><span class="n">dsets</span><span class="o">.</span><span class="n">o2i</span><span class="p">),</span>
+              <span class="s1">'before_batch'</span><span class="p">:</span> <span class="n">Pad_Chunk</span><span class="p">(</span><span class="n">seq_len</span><span class="o">=</span><span class="n">seq_len</span><span class="p">)</span>
+             <span class="p">}</span>
+
+<span class="n">dls</span>        <span class="o">=</span> <span class="n">dsets</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">(</span><span class="n">bs</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">seq_len</span><span class="o">=</span><span class="n">seq_len</span><span class="p">,</span> <span class="o">**</span><span class="n">dls_kwargs</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>When creating <code>fast.ai</code> dataloders we could perform operations on some of the events emitted.</li>
+<li>Here we have made use of two such events, <code>after_item</code> callback is used to run our augmentation and add punctuation marks.</li>
+<li>
+<code>before_batch</code> callback is used to make sure that we have paddded the tokens to make sure they are of same size before we collate them to form a batch.</li>
+</ul>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">dls</span><span class="o">.</span><span class="n">show_batch</span><span class="p">(</span><span class="n">max_n</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/aeda_dl_show.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>
+<code>dls.show_batch</code> gives a glimpse of the batch</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Using-the-classic-TextCNN-model-introduced-by-Yoon-Kim,-paper">
+<a class="anchor" href="#Using-the-classic-TextCNN-model-introduced-by-Yoon-Kim,-paper" aria-hidden="true"><span class="octicon octicon-link"></span></a>Using the classic <code>TextCNN</code> model introduced by Yoon Kim, <a href="https://arxiv.org/abs/1408.5882">paper</a><a class="anchor-link" href="#Using-the-classic-TextCNN-model-introduced-by-Yoon-Kim,-paper"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">TextCNN</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_embed</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">num_filters</span><span class="p">,</span> <span class="n">filter_sizes</span><span class="p">,</span> <span class="n">num_classes</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">pad_idx</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+        <span class="n">store_attr</span><span class="p">(</span><span class="s1">'n_embed,embed_dim'</span><span class="p">)</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">num_embeddings</span><span class="o">=</span><span class="n">n_embed</span><span class="p">,</span>
+                                  <span class="n">embedding_dim</span><span class="o">=</span><span class="n">embed_dim</span><span class="p">,</span>
+                                  <span class="n">padding_idx</span><span class="o">=</span><span class="mi">1</span>
+                                 <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">convs</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+                            <span class="n">nn</span><span class="o">.</span><span class="n">Conv2d</span><span class="p">(</span><span class="n">in_channels</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                                      <span class="n">out_channels</span><span class="o">=</span><span class="n">num_filters</span><span class="p">,</span> 
+                                      <span class="n">kernel_size</span><span class="o">=</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">)</span>
+                                     <span class="p">)</span> 
+                            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">filter_sizes</span>
+                                <span class="p">])</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">relu</span>     <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ReLU</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fc</span>       <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">num_filters</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">filter_sizes</span><span class="p">),</span> <span class="n">num_classes</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">_conv_and_pool</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">conv</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">relu</span><span class="p">(</span><span class="n">conv</span><span class="p">(</span><span class="n">x</span><span class="p">))</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">max_pool1d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+    
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_conv_and_pool</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">conv</span><span class="p">)</span> <span class="k">for</span> <span class="n">conv</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">convs</span><span class="p">],</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fc</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">vocab</span>       <span class="o">=</span> <span class="n">dls</span><span class="o">.</span><span class="n">train_ds</span><span class="o">.</span><span class="n">vocab</span>
+<span class="n">num_classes</span> <span class="o">=</span> <span class="n">get_c</span><span class="p">(</span><span class="n">dls</span><span class="p">)</span>
+<span class="n">model</span>       <span class="o">=</span> <span class="n">TextCNN</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vocab</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> 
+                      <span class="n">embed_dim</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> 
+                      <span class="n">num_filters</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> 
+                      <span class="n">filter_sizes</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span>
+                      <span class="n">num_classes</span><span class="o">=</span><span class="n">num_classes</span><span class="p">,</span>
+                     <span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Define-learner">
+<a class="anchor" href="#Define-learner" aria-hidden="true"><span class="octicon octicon-link"></span></a>Define learner<a class="anchor-link" href="#Define-learner"> </a>
+</h4>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">learn</span> <span class="o">=</span> <span class="n">Learner</span><span class="p">(</span><span class="n">dls</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">accuracy</span><span class="p">,</span> <span class="n">F1Score</span><span class="p">(</span><span class="n">average</span><span class="o">=</span><span class="s1">'weighted'</span><span class="p">)])</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Using <code>F1 score weighted</code> metric for multi-class classification.</li>
+</ul>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">learn</span><span class="o">.</span><span class="n">fit_one_cycle</span><span class="p">(</span><span class="n">n_epoch</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">lr_max</span><span class="o">=</span><span class="mf">3e-4</span><span class="p">,</span> <span class="n">cbs</span><span class="o">=</span><span class="n">EarlyStoppingCallback</span><span class="p">(</span><span class="n">patience</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/aeda_fit_one_cycle.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>We are getting a <code>F1( weighted )</code> score of <code>0.869</code> without using any <code>pre-trained</code> embeddings.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="References">
+<a class="anchor" href="#References" aria-hidden="true"><span class="octicon octicon-link"></span></a>References<a class="anchor-link" href="#References"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li><a href="https://arxiv.org/pdf/2108.13230.pdf">AEDA: An Easier Data Augmentation Technique for Text Classification</a></li>
+<li><a href="https://github.com/akkarimi/aeda_nlp/">AEDA code</a></li>
+<li><a href="https://arxiv.org/abs/1901.11196">EDA: Easy Data Augmentation Techniques for Boosting Performance on Text Classification Tasks</a></li>
+<li><a href="https://www.fast.ai/">Fast.AI</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/math/fastai/nlp/2022/01/31/aeda-text-augmentation.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
