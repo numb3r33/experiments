@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Residual Learning | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Residual Learning" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Understanding the role of residuals in model training." />
+<meta property="og:description" content="Understanding the role of residuals in model training." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/math/2022/09/19/residual-learning.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/math/2022/09/19/residual-learning.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/res_learning.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-09-19T00:00:00-05:00" />
+<script type="application/ld+json">
+{"headline":"Residual Learning","url":"https://numb3r33.github.io/experiments/deeplearning/math/2022/09/19/residual-learning.html","dateModified":"2022-09-19T00:00:00-05:00","datePublished":"2022-09-19T00:00:00-05:00","image":"https://numb3r33.github.io/experiments/images/res_learning.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/math/2022/09/19/residual-learning.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"Understanding the role of residuals in model training.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Residual Learning</h1><p class="page-description">Understanding the role of residuals in model training.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2022-09-19T00:00:00-05:00" itemprop="datePublished">
+        Sep 19, 2022
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      7 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#math">math</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2022-09-19-residual-learning.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2022-09-19-residual-learning.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2022-09-19-residual-learning.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#What-is-a-residual?">What is a residual? </a></li>
+<li class="toc-entry toc-h2"><a href="#What-is-residual-learning?">What is residual learning? </a></li>
+<li class="toc-entry toc-h2"><a href="#How-does-Gradient-Boosting-Machines-use-residuals?">How does Gradient Boosting Machines use residuals? </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Gradient-Boosting">Gradient Boosting </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#Role-of-residual-learning-in-training-deep-networks?">Role of residual learning in training deep networks? </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Why-do-we-need-ResNets?">Why do we need ResNets? </a></li>
+<li class="toc-entry toc-h3"><a href="#Are-deeper-networks-really-better?">Are deeper networks really better? </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#Overfitting">Overfitting </a></li>
+<li class="toc-entry toc-h4"><a href="#Vanishing/Exploding-Gradients">Vanishing/Exploding Gradients </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h3"><a href="#How-do-we-tackle-model-degradation-then?">How do we tackle model degradation then? </a></li>
+<li class="toc-entry toc-h3"><a href="#Residual-Block">Residual Block </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#Why-is-residual-learning-relatively-easier?">Why is residual learning relatively easier? </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h3"><a href="#Experiments">Experiments </a></li>
+<li class="toc-entry toc-h3"><a href="#Summary">Summary </a></li>
+<li class="toc-entry toc-h3"><a href="#References">References </a></li>
+</ul>
+</li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2022-09-19-residual-learning.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="What-is-a-residual?">
+<a class="anchor" href="#What-is-a-residual?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is a residual?<a class="anchor-link" href="#What-is-a-residual?"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Residual is the difference between actual and estimated value.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="What-is-residual-learning?">
+<a class="anchor" href="#What-is-residual-learning?" aria-hidden="true"><span class="octicon octicon-link"></span></a>What is residual learning?<a class="anchor-link" href="#What-is-residual-learning?"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In the context of ensemble learning, a base model is used to fit the residuals to make the ensemble model more accurate. In deep learning, various architectures use a block/layer to fit the residual to improve the performance of the DNN.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="How-does-Gradient-Boosting-Machines-use-residuals?">
+<a class="anchor" href="#How-does-Gradient-Boosting-Machines-use-residuals?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How does Gradient Boosting Machines use residuals?<a class="anchor-link" href="#How-does-Gradient-Boosting-Machines-use-residuals?"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>We will try to deconstruct how GBM works using DecisionTrees on a regression task.</p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">sklearn</span> <span class="kn">import</span> <span class="n">datasets</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">train_test_split</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">datasets</span><span class="o">.</span><span class="n">make_regression</span><span class="p">(</span><span class="n">n_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">41</span><span class="p">)</span>
+<span class="n">Xtr</span><span class="p">,</span> <span class="n">Xva</span><span class="p">,</span> <span class="n">ytr</span><span class="p">,</span> <span class="n">yva</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">41</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">sklearn.tree</span> <span class="kn">import</span> <span class="n">DecisionTreeRegressor</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">tree_reg1</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">41</span><span class="p">)</span>
+<span class="n">tree_reg1</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xtr</span><span class="p">,</span> <span class="n">ytr</span><span class="p">)</span>
+
+<span class="n">y2</span> <span class="o">=</span> <span class="n">ytr</span> <span class="o">-</span> <span class="n">tree_reg1</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">Xtr</span><span class="p">)</span>
+
+<span class="n">tree_reg2</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">41</span><span class="p">)</span>
+<span class="n">tree_reg2</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xtr</span><span class="p">,</span> <span class="n">y2</span><span class="p">)</span>
+
+<span class="n">y3</span> <span class="o">=</span> <span class="n">y2</span> <span class="o">-</span> <span class="n">tree_reg2</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">Xtr</span><span class="p">)</span>
+
+<span class="n">tree_reg3</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">41</span><span class="p">)</span>
+<span class="n">tree_reg3</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xtr</span><span class="p">,</span> <span class="n">y3</span><span class="p">)</span>
+
+<span class="n">y_pred</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">tree</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">Xva</span><span class="p">)</span> <span class="k">for</span> <span class="n">tree</span> <span class="ow">in</span> <span class="p">(</span><span class="n">tree_reg1</span><span class="p">,</span> <span class="n">tree_reg2</span><span class="p">,</span> <span class="n">tree_reg3</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Gradient-Boosting">
+<a class="anchor" href="#Gradient-Boosting" aria-hidden="true"><span class="octicon octicon-link"></span></a>Gradient Boosting<a class="anchor-link" href="#Gradient-Boosting"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>How does residuals play a part in Gradient Boosting Learning?</strong></p>
+<ul>
+<li>Train a base learner <code>tree_reg1</code> to fit data (<code>X</code>) and labels (<code>y</code>)</li>
+<li>Train a base learner <code>tree_reg2</code> that fits on data (<code>X</code>) and <strong>residuals</strong> between the <code>label</code> and predicted value of base learner <code>tree_reg1</code>. Essentially, we are using a base learner to learn the <strong>residuals</strong>.</li>
+<li>Finally the result of all the base learners are added to make the final prediction.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The above code is equivalent to calling the GradientBoostingRegressor with <code>3</code> base learners.</p>
+
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">sklearn.ensemble</span> <span class="kn">import</span> <span class="n">GradientBoostingRegressor</span>
+
+<span class="n">gbrt</span> <span class="o">=</span> <span class="n">GradientBoostingRegressor</span><span class="p">(</span><span class="n">max_depth</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_estimators</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">41</span><span class="p">)</span>
+<span class="n">gbrt</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">Xtr</span><span class="p">,</span> <span class="n">ytr</span><span class="p">)</span>
+
+<span class="n">gb_preds</span> <span class="o">=</span> <span class="n">gbrt</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">Xva</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="nb">sum</span><span class="p">(</span><span class="n">y_pred</span> <span class="o">-</span> <span class="n">gb_preds</span><span class="p">)</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+<div class="output_area">
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>-4.554578936222242e-12</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Role-of-residual-learning-in-training-deep-networks?">
+<a class="anchor" href="#Role-of-residual-learning-in-training-deep-networks?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Role of residual learning in training deep networks?<a class="anchor-link" href="#Role-of-residual-learning-in-training-deep-networks?"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Why-do-we-need-ResNets?">
+<a class="anchor" href="#Why-do-we-need-ResNets?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why do we need ResNets?<a class="anchor-link" href="#Why-do-we-need-ResNets?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Research to develop better architectures which perform better has led researchers to go deeper with a notion that to a certain extent going deeper would yield better performance.</p>
+<p>But we realized that going deeper brings problems of its own, model become difficult to train. In 2014, VGG had only 19 layers while in 2015 ResNet had 152 layers and a far better performance, one can say at an initial glance that ResNet wins because it has more number of layers. Ofcourse that is the case but it also introduces a trick called "residual learning" that helps achieve this performance.</p>
+<p>CNN models have evolved over time from LeNet-5 ( 5 layers ) and AlexNet ( 8 layers ) to VGGNet (16-19) and later GoogleNet ( 22 layers ). According to experimental results of VGGNet, depth of the network plays a crucial role in model's performance.</p>
+<p>Please find below tables extracted from <a href="https://arxiv.org/pdf/1409.1556.pdf">VGG paper</a> that showcases that deeper we go better the effect.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_tbl.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_conv_perf.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Are-deeper-networks-really-better?">
+<a class="anchor" href="#Are-deeper-networks-really-better?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Are deeper networks really better?<a class="anchor-link" href="#Are-deeper-networks-really-better?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Later in various experiments it was found out that model performance increases with depth upto a certain extent further which it often decreases. What could be the reasons for that could it be following</p>
+<ul>
+<li>Overfitting.</li>
+<li>Vanishing/Exploding Gradients.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Overfitting">
+<a class="anchor" href="#Overfitting" aria-hidden="true"><span class="octicon octicon-link"></span></a>Overfitting<a class="anchor-link" href="#Overfitting"> </a>
+</h4>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In the <a href="https://arxiv.org/pdf/1512.03385.pdf">Resnet</a> paper the authors tried this following experiment</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_overfit.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The y-axis on the left figure represents <strong>training error</strong> and the y-axis on the right figure represents <strong>test error</strong> and x-axes on the both the figures represent the number of iterations.</p>
+<p>We can see that the 20-layer network trained for a large number of iterations yields in low training error but corresponding test error is relatively large. This is a case of <strong>over-fitting</strong> ( we are performing better on training compared to test dataset ).</p>
+<p>In addition to this the authors also trained a network with 56-layers and found out that error of this network in both training and testing is large compared to the 20-layer network. Thus performance degradation has nothing to do with <code>overfitting</code>.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Vanishing/Exploding-Gradients">
+<a class="anchor" href="#Vanishing/Exploding-Gradients" aria-hidden="true"><span class="octicon octicon-link"></span></a>Vanishing/Exploding Gradients<a class="anchor-link" href="#Vanishing/Exploding-Gradients"> </a>
+</h4>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Vanishing/Exploding gradients make the model difficult to train but there are already some techniques like Batch Normalization to alleviate this problem.</p>
+<p>Let's try to understand the example presented by author in the paper</p>
+<p>Suppose we have a following network which can perform good on training and test datasets.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/plain_network.drawio.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Then we augment the architecture in the following way to add more layers. The parameters of the first 4 layers are copied from the above network and these parameters remain unchanged during training.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/plain_network_more_layers.drawio.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In theory the performance of the second network should be better than first network since we have more layers which could extract useful features and suppose we find out that the second network performs worse, then one explanation provided by the authors is that since we have copied the parameters of first 4 layers in the second network and if they are enough to meet the performance requirements then the newly added layers are a bit redundant. To maintain the level of performance, the newly added functions has to serve as an <strong>identity mapping</strong> that is the net effect of the purple layers should be <code>f(x) = x</code>, in this way we would not experience model degradation.</p>
+<p>This is what the authors observed that the non-linear expression of the traditional multi-layer network structure has difficulty expressing the identity mapping which leads to model degradation.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="How-do-we-tackle-model-degradation-then?">
+<a class="anchor" href="#How-do-we-tackle-model-degradation-then?" aria-hidden="true"><span class="octicon octicon-link"></span></a>How do we tackle model degradation then?<a class="anchor-link" href="#How-do-we-tackle-model-degradation-then?"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Assuming that a relatively shallow network can already achieve good results, then even if the network is piled up with more layers the effect of the model should not deteriorate.</p>
+<p>In reality, however this is the problem, <code>doing nothing</code> happens to be a very challenging task.</p>
+<p>Presence of non-linear activation functions makes the input-to-output process almost irreversible. Non-linearity gives the model endless possibilities but it also makes the network forget the original intention.</p>
+<p>The quality of <code>not forgetting the original intention/doing nothing</code> is managed by identity mapping.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Residual-Block">
+<a class="anchor" href="#Residual-Block" aria-hidden="true"><span class="octicon octicon-link"></span></a>Residual Block<a class="anchor-link" href="#Residual-Block"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_res_block.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>In fact, it is difficult for existing neural networks to fit the underlying identity mapping function H(x) = x.But if the network is designed such that H(x) = F(x) + x, then the identity map could be used as part of the network.</p>
+<p>The problem can be transformed into learning a residual function F(x) = H(x) - x. As long as F(x)=0, an identity map H(x) = x is formed. The loop in the figure is called a shortcut connection. By jumping before the activation function, the output of the previous layer or layers is added to the output calculated by this layer, and the result of summation is input to the next activation function as the output of this layer.</p>
+<p>The idea of the skip connection is to expressed the output as a linear superposition of a nonlinear transformation of the input and the input. There is no new formula, no new theory, but a new expression.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h4 id="Why-is-residual-learning-relatively-easier?">
+<a class="anchor" href="#Why-is-residual-learning-relatively-easier?" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why is residual learning relatively easier?<a class="anchor-link" href="#Why-is-residual-learning-relatively-easier?"> </a>
+</h4>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Intuitively, residual learning requires less learning, because residuals are generally relatively small and the learning difficulty is less. However, we can analyze this problem from a mathematical point of view. First, the residual unit can be expressed as:</p>
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_eq_1.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>$F(x, \{W_i\})$ is the goal of our learning, that is, the residual of the output and input i.e. $y-x$. If we further expand</p>
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_eq_2.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>$\sigma$ refers to Relu, while $W_1$, $W_2$ refer to two layers of weights. When $F(x,\{W_i\})$ learns to have a <code>0</code> value then $y = x$, this is what we call identity mapping.</p>
+<p>Why can't we have $y=f(x,\{W_i\})$ instead and no skip connections?</p>
+<ul>
+<li>Because $f(x,\{W_i\})$ has a ReLU activation function in the middle so if <code>x &lt;= 0</code> then <code>y = 0</code> which would violate the identity mapping principle.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Experiments">
+<a class="anchor" href="#Experiments" aria-hidden="true"><span class="octicon octicon-link"></span></a>Experiments<a class="anchor-link" href="#Experiments"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><img src="/experiments/images/copied_from_nb/images/res_learning_experiments.png" alt=""></p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Taken directly from Resnet paper</p>
+<blockquote>
+<p>Training on ImageNet. Thin curves denote training error, and bold curves denote validation error of the center crops. Left:plain networks of 18 and 34 layers. Right: ResNets of 18 and 34 layers. In this plot, the residual networks have no extra parameter compared to their plain counterparts.</p>
+</blockquote>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Summary">
+<a class="anchor" href="#Summary" aria-hidden="true"><span class="octicon octicon-link"></span></a>Summary<a class="anchor-link" href="#Summary"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Shortcut connections/residual connections/skip connections/skip connections, etc. are all one thing, there is no new theory, just a new expression.</li>
+<li>Problem of model degradation when deepening the network could be somewhat alleviated using residual learning.</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="References">
+<a class="anchor" href="#References" aria-hidden="true"><span class="octicon octicon-link"></span></a>References<a class="anchor-link" href="#References"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li><a href="https://arxiv.org/pdf/1512.03385.pdf">Resnet paper</a></li>
+<li><a href="https://arxiv.org/pdf/1409.1556.pdf">VGG</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/math/2022/09/19/residual-learning.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
