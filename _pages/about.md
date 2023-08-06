@@ -17,8 +17,7 @@ permalink: /about/
     * Winner of Deep Learning Hackathon organized by HackerEarth (https://www.hackerearth.com/challenges/competitive/deep-learning-beginner-challenge/leaderboard/).
     * Ranked in Top-100 data scientists on Analytics Vidhya platform which has around 3500 competitors at the time of writing.
 * Interested in blogging about machine learning, deep learning and mathematics, you can read my posts [here](https://numb3r33.github.io/experiments/)
+
 This website is powered by **[fastpages](https://github.com/fastai/fastpages)** [^1].
-
-
 
 [^1]:a blogging platform that natively supports Jupyter notebooks in addition to other formats.
