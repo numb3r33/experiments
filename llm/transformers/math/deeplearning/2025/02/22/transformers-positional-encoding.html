@@ -97,7 +97,7 @@ window.onload = wrap_img;
        • <span class="read-time" title="Estimated read time">
     
     
-      19 min read
+      17 min read
     
 </span></p>
 
@@ -148,15 +148,16 @@ window.onload = wrap_img;
     <ul class="section-nav">
 <li class="toc-entry toc-h2"><a href="#Introduction">Introduction </a></li>
 <li class="toc-entry toc-h2"><a href="#The-Challenge-of-Position-in-Self-Attention">The Challenge of Position in Self-Attention </a></li>
-<li class="toc-entry toc-h2"><a href="#Positional-Encoding-Requirements">Positional Encoding Requirements </a>
+<li class="toc-entry toc-h2"><a href="#Positional-Encoding-Requirements">Positional Encoding Requirements </a></li>
+<li class="toc-entry toc-h2"><a href="#Approaches-to-Positional-Encoding">Approaches to Positional Encoding </a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#Early-Approaches:-Integer-and-Bounded-Range-Encoding">Early Approaches: Integer and Bounded Range Encoding </a></li>
+<li class="toc-entry toc-h3"><a href="#Integer-Positional-Encoding">Integer Positional Encoding </a></li>
 <li class="toc-entry toc-h3"><a href="#Bounded-Range-Encoding">Bounded Range Encoding </a></li>
 <li class="toc-entry toc-h3"><a href="#Vector-Based-Positional-Encoding">Vector-Based Positional Encoding </a></li>
 </ul>
 </li>
 <li class="toc-entry toc-h2"><a href="#Sinusoidal-Positional-Encoding:-The-Elegant-Solution">Sinusoidal Positional Encoding: The Elegant Solution </a></li>
-<li class="toc-entry toc-h2"><a href="#Mathematical-Properties-of-Sinusoidal-Positional-Encoding">Mathematical Properties of Sinusoidal Positional Encoding </a>
+<li class="toc-entry toc-h2"><a href="#Basic-Properties-of-Sinusoidal-Positional-Encoding">Basic Properties of Sinusoidal Positional Encoding </a>
 <ul>
 <li class="toc-entry toc-h3"><a href="#1.-Uniqueness-of-Position-Vectors">1. Uniqueness of Position Vectors </a></li>
 <li class="toc-entry toc-h3"><a href="#2.-Bounded-Values">2. Bounded Values </a></li>
@@ -164,54 +165,36 @@ window.onload = wrap_img;
 <li class="toc-entry toc-h3"><a href="#4.-Alternating-Sine-and-Cosine">4. Alternating Sine and Cosine </a></li>
 </ul>
 </li>
-<li class="toc-entry toc-h2"><a href="#The-Linear-Transformation-Property">The Linear Transformation Property </a></li>
-<li class="toc-entry toc-h2"><a href="#Inner-Product-and-Relative-Position-Dependency">Inner Product and Relative Position Dependency </a></li>
-<li class="toc-entry toc-h2"><a href="#Asymptotic-Analysis-of-Oscillatory-Integrals">Asymptotic Analysis of Oscillatory Integrals </a>
+<li class="toc-entry toc-h2"><a href="#Advanced-Mathematical-Properties">Advanced Mathematical Properties </a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#Why-Dominant-Contributions-Come-From-Slowly-Varying-Phases">Why Dominant Contributions Come From Slowly Varying Phases </a></li>
-<li class="toc-entry toc-h3"><a href="#Phase-Analysis-and-Substitution">Phase Analysis and Substitution </a></li>
-<li class="toc-entry toc-h3"><a href="#Integration-by-Parts">Integration by Parts </a></li>
+<li class="toc-entry toc-h3"><a href="#The-Linear-Transformation-Property">The Linear Transformation Property </a></li>
+<li class="toc-entry toc-h3"><a href="#Linear-Position-Encoding:-A-Mathematical-Necessity">Linear Position Encoding: A Mathematical Necessity </a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#Step-1:-Key-Cases-Analysis">Step 1: Key Cases Analysis </a></li>
+<li class="toc-entry toc-h4"><a href="#Step-2:-Solving-the-Recurrence">Step 2: Solving the Recurrence </a></li>
+<li class="toc-entry toc-h4"><a href="#Step-3:-Verifying-the-Solution">Step 3: Verifying the Solution </a></li>
+<li class="toc-entry toc-h4"><a href="#Step-4:-Why-Non-Linear-Solutions-Fail">Step 4: Why Non-Linear Solutions Fail </a></li>
 </ul>
 </li>
-<li class="toc-entry toc-h2"><a href="#Why-the-Frequency-Parameter-Choice-Leads-to-Decaying-Correlation">Why the Frequency Parameter Choice Leads to Decaying Correlation </a>
-<ul>
-<li class="toc-entry toc-h3"><a href="#Sinusoidal-Positional-Encodings-and-Inner-Product-Calculation">Sinusoidal Positional Encodings and Inner Product Calculation </a>
-<ul>
-<li class="toc-entry toc-h4"><a href="#Inner-Product-and-Relative-Position-Dependency">Inner Product and Relative Position Dependency </a></li>
+<li class="toc-entry toc-h3"><a href="#Inner-Product-and-Relative-Position-Dependency">Inner Product and Relative Position Dependency </a></li>
 </ul>
 </li>
-<li class="toc-entry toc-h3"><a href="#Decay-of-Inner-Product-with-|m-n|">Decay of Inner Product with |m-n| </a></li>
-<li class="toc-entry toc-h3"><a href="#Comparison-with-Power-Laws">Comparison with Power Laws </a></li>
-</ul>
-</li>
-<li class="toc-entry toc-h2"><a href="#The-Proof-that-φₘ---φₙ-=-φₘ₋ₙ-Implies-φₘ-=-mθ">The Proof that φₘ - φₙ = φₘ₋ₙ Implies φₘ = mθ </a>
+<li class="toc-entry toc-h2"><a href="#Asymptotic-Behavior-and-Frequency-Choice">Asymptotic Behavior and Frequency Choice </a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#Step-1:-Setting-up-the-Equation">Step 1: Setting up the Equation </a></li>
-<li class="toc-entry toc-h3"><a href="#Step-2:-Solving-for-Key-Cases">Step 2: Solving for Key Cases </a></li>
-<li class="toc-entry toc-h3"><a href="#Step-3:-Solving-the-Recurrence">Step 3: Solving the Recurrence </a></li>
-<li class="toc-entry toc-h3"><a href="#Step-4:-General-Proof-of-Linearity">Step 4: General Proof of Linearity </a></li>
-<li class="toc-entry toc-h3"><a href="#Step-5:-Why-Non-Linear-Solutions-Fail">Step 5: Why Non-Linear Solutions Fail </a></li>
-</ul>
-</li>
-<li class="toc-entry toc-h2"><a href="#Stationary-Phase-Approximation-and-Oscillatory-Integrals">Stationary Phase Approximation and Oscillatory Integrals </a>
+<li class="toc-entry toc-h3"><a href="#Why-Inner-Products-Decay-with-Distance">Why Inner Products Decay with Distance </a></li>
+<li class="toc-entry toc-h3"><a href="#Mathematical-Analysis-of-Decay-Rate">Mathematical Analysis of Decay Rate </a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#Stationary-Phase-Approximation">Stationary Phase Approximation </a></li>
+<li class="toc-entry toc-h4"><a href="#Step-1:-Substitution">Step 1: Substitution </a></li>
+<li class="toc-entry toc-h4"><a href="#Step-2:-Integration-by-Parts">Step 2: Integration by Parts </a></li>
 </ul>
 </li>
-<li class="toc-entry toc-h2"><a href="#Analysis-for-Transformer-Positional-Encoding">Analysis for Transformer Positional Encoding </a>
-<ul>
-<li class="toc-entry toc-h3"><a href="#Phase-Analysis:">Phase Analysis: </a></li>
-<li class="toc-entry toc-h3"><a href="#No-Stationary-Point:">No Stationary Point: </a></li>
-<li class="toc-entry toc-h3"><a href="#Monotonic-Decay:">Monotonic Decay: </a></li>
+<li class="toc-entry toc-h3"><a href="#The-Role-of-the-Frequency-Parameter">The Role of the Frequency Parameter </a></li>
+<li class="toc-entry toc-h3"><a href="#Absence-of-Stationary-Points">Absence of Stationary Points </a></li>
 </ul>
 </li>
-<li class="toc-entry toc-h2"><a href="#Summary-of-Mathematical-Properties">Summary of Mathematical Properties </a>
-<ul>
-<li class="toc-entry toc-h3"><a href="#Why-Non-Linear-Solutions-Fail">Why Non-Linear Solutions Fail </a></li>
-</ul>
-</li>
-<li class="toc-entry toc-h2"><a href="#Why-This-Works:-A-Taylor-Expansion-Perspective">Why This Works: A Taylor Expansion Perspective </a></li>
+<li class="toc-entry toc-h2"><a href="#Breaking-Symmetry:-A-Taylor-Expansion-Perspective">Breaking Symmetry: A Taylor Expansion Perspective </a></li>
 <li class="toc-entry toc-h2"><a href="#Practical-Implications-for-Transformer-Models">Practical Implications for Transformer Models </a></li>
+<li class="toc-entry toc-h2"><a href="#Summary-of-Mathematical-Properties">Summary of Mathematical Properties </a></li>
 <li class="toc-entry toc-h2"><a href="#Conclusion">Conclusion </a></li>
 <li class="toc-entry toc-h2"><a href="#References">References </a></li>
 </ul><!--
@@ -229,62 +212,71 @@ window.onload = wrap_img;
 <h2 id="Introduction">
 <a class="anchor" href="#Introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction<a class="anchor-link" href="#Introduction"> </a>
 </h2>
-<p>When we process sequential data like text, the order of elements matters tremendously. The sentence "dog bites man" conveys a very different meaning than "man bites dog," despite containing exactly the same words. This simple example highlights why position information is crucial for understanding sequences.
-Transformer architectures revolutionized natural language processing with their self-attention mechanism, allowing models to process entire sequences in parallel rather than sequentially like RNNs. However, this parallelization comes with a challenge: self-attention is inherently position-agnostic. If we simply feed word embeddings into a transformer, the model has no way of knowing which word came first, second, or last.
-This position-blindness creates a fundamental problem. How can transformers understand the sequential nature of language without sacrificing their parallelization advantage? The answer lies in positional encodings - specially designed vectors that inject position information into the model. In this blog, we'll take a deep mathematical dive into how transformer positional encodings work, particularly focusing on the elegant sinusoidal solution presented in the "Attention Is All You Need" paper.
-Let's explore the mathematical elegance that allows transformers to understand sequence order while maintaining their computational advantages.</p>
+<p>When we process sequential data like text, the order of elements matters tremendously. The sentence "dog bites man" conveys a very different meaning than "man bites dog," despite containing exactly the same words. This simple example highlights why position information is crucial for understanding sequences.</p>
+<p>Transformer architectures revolutionized natural language processing with their self-attention mechanism, allowing models to process entire sequences in parallel rather than sequentially like RNNs. However, this parallelization comes with a challenge: self-attention is inherently position-agnostic. If we simply feed word embeddings into a transformer, the model has no way of knowing which word came first, second, or last.</p>
+<p>This position-blindness creates a fundamental problem. How can transformers understand the sequential nature of language without sacrificing their parallelization advantage? The answer lies in positional encodings - specially designed vectors that inject position information into the model. In this blog, we'll take a deep mathematical dive into how transformer positional encodings work, particularly focusing on the elegant sinusoidal solution presented in the "Attention Is All You Need" paper.</p>
+<p>Let's explore the mathematical elegance that allows transformers to understand sequence order while maintaining their computational advantages.</p>
 <h2 id="The-Challenge-of-Position-in-Self-Attention">
 <a class="anchor" href="#The-Challenge-of-Position-in-Self-Attention" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Challenge of Position in Self-Attention<a class="anchor-link" href="#The-Challenge-of-Position-in-Self-Attention"> </a>
 </h2>
-<p>To understand why positional encodings are necessary, we must first examine the self-attention mechanism's architecture. In the most basic form, self-attention operates on a set of input vectors and computes weighted connections between them. The input tokens are converted to query (q), key (k), and value (v) vectors through linear transformations. The attention weights are then computed via dot products between queries and keys, determining how much each token should "attend" to other tokens.
-Mathematically, for each token's position i, the attention mechanism computes:
-
+<p>To understand why positional encodings are necessary, we must first examine the self-attention mechanism's architecture. In the most basic form, self-attention operates on a set of input vectors and computes weighted connections between them.</p>
+<p>In the self-attention mechanism, input tokens are converted to query (q), key (k), and value (v) vectors through linear transformations. The attention weights are then computed via dot products between queries and keys, determining how much each token should "attend" to other tokens.</p>
+<p>Mathematically, for each token's position i, the attention mechanism computes:</p>
+<p>
 $$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
-
-The critical observation is that this formulation is permutation invariant. If we shuffle the order of tokens in the input sequence, the computed attention patterns would adjust accordingly but still produce mathematically equivalent results. There's nothing in the core attention mechanism that encodes or preserves information about the absolute or relative positions of tokens.</p>
-<p>These are indistinguishable information for self-attention because the operation of self-attention is undirected. This position-blindness is a fundamental limitation that needs to be addressed.</p>
+</p>
+<p>The critical observation is that this formulation is permutation invariant. If we shuffle the order of tokens in the input sequence, the computed attention patterns would adjust accordingly but still produce mathematically equivalent results. There's nothing in the core attention mechanism that encodes or preserves information about the absolute or relative positions of tokens.</p>
+<p>As noted in our analysis: "These are indistinguishable information for self-attention because the operation of self-attention is undirected." This position-blindness is a fundamental limitation that needs to be addressed.</p>
 <h2 id="Positional-Encoding-Requirements">
 <a class="anchor" href="#Positional-Encoding-Requirements" aria-hidden="true"><span class="octicon octicon-link"></span></a>Positional Encoding Requirements<a class="anchor-link" href="#Positional-Encoding-Requirements"> </a>
 </h2>
-<p>Before diving into specific encoding strategies, let's establish what makes a good positional encoding. We can identify three critical requirements:</p>
-<ul>
-<li>Absolute Position Representation: The encoding must uniquely identify the absolute position of each token in the sequence (e.g., first token is 1, second token is 2).</li>
-<li>Relative Position Consistency: When sequences have different lengths, the relative positions/distances between tokens must remain consistent. For example, the relative distance between positions 2 and 4 should be encoded the same way regardless of whether the sequence has 10 tokens or 100 tokens.</li>
-<li>Length Generalization: The encoding system must work for sequence lengths that the model has never seen during training. This is crucial for practical applications where input lengths can vary widely.</li>
-</ul>
+<p>Before diving into specific encoding strategies, let's establish what makes a good positional encoding. From our analysis, we can identify three critical requirements:</p>
+<ol>
+<li>
+<p><strong>Absolute Position Representation</strong>: The encoding must uniquely identify the absolute position of each token in the sequence (e.g., first token is 1, second token is 2).</p>
+</li>
+<li>
+<p><strong>Relative Position Consistency</strong>: When sequences have different lengths, the relative positions/distances between tokens must remain consistent. For example, the relative distance between positions 2 and 4 should be encoded the same way regardless of whether the sequence has 10 tokens or 100 tokens.</p>
+</li>
+<li>
+<p><strong>Length Generalization</strong>: The encoding system must work for sequence lengths that the model has never seen during training. This is crucial for practical applications where input lengths can vary widely.</p>
+</li>
+</ol>
 <p>These requirements create interesting constraints on the mathematical properties our positional encoding must satisfy. Let's explore different approaches and see how they measure up against these requirements.</p>
-<h3 id="Early-Approaches:-Integer-and-Bounded-Range-Encoding">
-<a class="anchor" href="#Early-Approaches:-Integer-and-Bounded-Range-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Early Approaches: Integer and Bounded Range Encoding<a class="anchor-link" href="#Early-Approaches:-Integer-and-Bounded-Range-Encoding"> </a>
+<h2 id="Approaches-to-Positional-Encoding">
+<a class="anchor" href="#Approaches-to-Positional-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Approaches to Positional Encoding<a class="anchor-link" href="#Approaches-to-Positional-Encoding"> </a>
+</h2>
+<h3 id="Integer-Positional-Encoding">
+<a class="anchor" href="#Integer-Positional-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Integer Positional Encoding<a class="anchor-link" href="#Integer-Positional-Encoding"> </a>
 </h3>
-<p>Integer Positional Encoding</p>
-<p>The most intuitive approach might be to simply use integer values to mark positions:
-
+<p>The most intuitive approach might be to simply use integer values to mark positions:</p>
+<p>
 $$\text{position}_i = i$$
-
-Where i represents the position in the sequence (1st, 2nd, 3rd, etc.). This natural encoding labels the first token as 1, the second as 2, and so on.
-However, this approach faces a significant problem. The "model may encounter sequences longer than training, not conducive to generalization of model." The issue is that position values become unbounded as the sequence length increases. If a model is trained on sequences of maximum length 512 but then encounters a sequence of length 1000, positions 513-1000 would be completely out of the training distribution.
-Additionally, as the length of sequences increases, position values grow larger and larger, potentially causing numerical instability or dominating the actual content embeddings.</p>
+</p>
+<p>Where i represents the position in the sequence (1st, 2nd, 3rd, etc.). This natural encoding labels the first token as 1, the second as 2, and so on.</p>
+<p>However, this approach faces a significant problem. As our analysis points out: "model may encounter sequences longer than training, not conducive to generalization of model." The issue is that position values become unbounded as the sequence length increases. If a model is trained on sequences of maximum length 512 but then encounters a sequence of length 1000, positions 513-1000 would be completely out of the training distribution.</p>
+<p>Additionally, as the length of sequences increases, position values grow larger and larger, potentially causing numerical instability or dominating the actual content embeddings.</p>
 <h3 id="Bounded-Range-Encoding">
 <a class="anchor" href="#Bounded-Range-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Bounded Range Encoding<a class="anchor-link" href="#Bounded-Range-Encoding"> </a>
 </h3>
-<p>To address the unbounded nature of integer encoding, we can normalize positions to a bounded range [0,1]:
-
+<p>To address the unbounded nature of integer encoding, we can normalize positions to a bounded range [0,1]:</p>
+<p>
 $$\text{position}_i = \frac{i-1}{L-1}$$
-
-Where L is the sequence length, mapping the first position to 0 and the last position to 1.
-This approach ensures that regardless of sequence length, position values remain bounded between 0 and 1. For example:</p>
-<p>For a 3-token sequence: [0, 0.5, 1]
-For a 4-token sequence: [0, 0.33, 0.67, 1]</p>
-<p>This neatly addresses the generalization problem for variable sequence lengths. However, it introduces a new issue: the relative distances between tokens now depend on sequence length. In a 3-token sequence, adjacent tokens have a positional difference of 0.5, while in a 4-token sequence, adjacent tokens have a difference of 0.33.
-This inconsistency in relative positions violates our second requirement and can make it harder for the model to learn consistent patterns across sequences of different lengths.</p>
+</p>
+<p>Where L is the sequence length, mapping the first position to 0 and the last position to 1.</p>
+<p>This approach ensures that regardless of sequence length, position values remain bounded between 0 and 1. For example:</p>
+<ul>
+<li>For a 3-token sequence: [0, 0.5, 1]</li>
+<li>For a 4-token sequence: [0, 0.33, 0.67, 1]</li>
+</ul>
+<p>This neatly addresses the generalization problem for variable sequence lengths. However, it introduces a new issue: the relative distances between tokens now depend on sequence length. In a 3-token sequence, adjacent tokens have a positional difference of 0.5, while in a 4-token sequence, adjacent tokens have a difference of 0.33.</p>
+<p>This inconsistency in relative positions violates our second requirement and can make it harder for the model to learn consistent patterns across sequences of different lengths.</p>
 <h3 id="Vector-Based-Positional-Encoding">
 <a class="anchor" href="#Vector-Based-Positional-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Vector-Based Positional Encoding<a class="anchor-link" href="#Vector-Based-Positional-Encoding"> </a>
 </h3>
 <p>To overcome the limitations of scalar position values, we can move to vector-based representations where we use a vector with the same dimension as our token embeddings to represent position.</p>
-<p>Binary Vector Encoding</p>
 <p>One approach is to use binary vectors for positional encoding. In this method, we represent positions using binary vectors where different dimensions encode different aspects of position.</p>
-<p>We can see an example where d_model = 3:
-For a token at position a₀, we might have:</p>
+<p>For a token at position a₀ with d_model = 3, we might have:</p>
 
 <pre><code>a₀ a₁ a₂ a₃ a₄ a₅ a₆ a₇
 0  0  0  0  1  1  1  1
@@ -294,231 +286,101 @@ For a token at position a₀, we might have:</p>
 <h2 id="Sinusoidal-Positional-Encoding:-The-Elegant-Solution">
 <a class="anchor" href="#Sinusoidal-Positional-Encoding:-The-Elegant-Solution" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sinusoidal Positional Encoding: The Elegant Solution<a class="anchor-link" href="#Sinusoidal-Positional-Encoding:-The-Elegant-Solution"> </a>
 </h2>
-<p>The transformer architecture introduced an elegant solution: sinusoidal positional encodings. We need functions that are bounded and continuous, with the sine function being the simplest option.
-The sinusoidal encoding defines each dimension of the positional encoding vector as follows:
-
-$$PE_{(t,2i)} = \sin\left(\frac{t}{10000^{2i/d_{model}}}\right)$$
-
-
-$$PE_{(t,2i+1)} = \cos\left(\frac{t}{10000^{2i/d_{model}}}\right)$$
-
-Where:</p>
-<p>t is the position in the sequence
-i is the dimension index (ranging from 0 to d_model/2-1)
-d_model is the dimensionality of the model embeddings</p>
-<p>This creates a unique positional fingerprint for each position t, where each dimension oscillates at a different frequency. The frequencies form a geometric progression from 1 to 1/10000, providing a rich spectrum of periodic signals.</p>
+<p>The transformer architecture introduced an elegant solution: sinusoidal positional encodings. We need functions that are bounded and continuous, with the sine function being the simplest option.</p>
+<p>The sinusoidal encoding defines each dimension of the positional encoding vector as follows:</p>
 <p>
-$$PE_t = \left[\sin(\omega_1 t), \cos(\omega_1 t), \sin(\omega_2 t), \cos(\omega_2 t), \ldots, \sin(\omega_{d_{model}/2} t), \cos(\omega_{d_{model}/2} t)\right]$$
-
-Where:
-
-$$\omega_i = \frac{1}{10000^{2i/(d_{model})}}$$
-
-Let's explore why this formulation is particularly effective.</p>
-<h2 id="Mathematical-Properties-of-Sinusoidal-Positional-Encoding">
-<a class="anchor" href="#Mathematical-Properties-of-Sinusoidal-Positional-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Mathematical Properties of Sinusoidal Positional Encoding<a class="anchor-link" href="#Mathematical-Properties-of-Sinusoidal-Positional-Encoding"> </a>
+$$PE_{(t,2i)} = \sin\left(\frac{t}{10000^{2i/d_{\text{model}}}}\right)$$
+</p>
+<p>
+$$PE_{(t,2i+1)} = \cos\left(\frac{t}{10000^{2i/d_{\text{model}}}}\right)$$
+</p>
+<p>Where:</p>
+<ul>
+<li>t is the position in the sequence</li>
+<li>i is the dimension index (ranging from 0 to d_model/2-1)</li>
+<li>d_model is the dimensionality of the model embeddings</li>
+</ul>
+<p>This creates a unique positional fingerprint for each position t, where each dimension oscillates at a different frequency. The frequencies form a geometric progression from 1 to 1/10000, providing a rich spectrum of periodic signals.</p>
+<p>We can express the full positional encoding vector as:</p>
+<p>
+$$PE_t = \left[\sin(\omega_1 t), \cos(\omega_1 t), \sin(\omega_2 t), \cos(\omega_2 t), \ldots, \sin(\omega_{d_{\text{model}}/2} t), \cos(\omega_{d_{\text{model}}/2} t)\right]$$
+</p>
+<p>Where:</p>
+<p>
+$$\omega_i = \frac{1}{10000^{2i/d_{\text{model}}}}$$
+</p>
+<p>Let's explore why this formulation is particularly effective by examining its mathematical properties.</p>
+<h2 id="Basic-Properties-of-Sinusoidal-Positional-Encoding">
+<a class="anchor" href="#Basic-Properties-of-Sinusoidal-Positional-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Basic Properties of Sinusoidal Positional Encoding<a class="anchor-link" href="#Basic-Properties-of-Sinusoidal-Positional-Encoding"> </a>
 </h2>
-<p>The sinusoidal encoding possesses several mathematical properties that make it ideal for positional representation in transformers:</p>
 <h3 id="1.-Uniqueness-of-Position-Vectors">
 <a class="anchor" href="#1.-Uniqueness-of-Position-Vectors" aria-hidden="true"><span class="octicon octicon-link"></span></a>1. Uniqueness of Position Vectors<a class="anchor-link" href="#1.-Uniqueness-of-Position-Vectors"> </a>
 </h3>
-<p>The vector of each token is unique (the frequency of each sin function is small enough). This ensures that each position gets a distinctive representation.</p>
+<p>The vector representation for each position is unique because the frequencies of the sine and cosine functions are carefully selected to create distinct patterns for each position. As our analysis notes: "The vector of each token is unique (the frequency of each sin function is small enough)." This ensures that each position gets a distinctive representation.</p>
 <h3 id="2.-Bounded-Values">
 <a class="anchor" href="#2.-Bounded-Values" aria-hidden="true"><span class="octicon octicon-link"></span></a>2. Bounded Values<a class="anchor-link" href="#2.-Bounded-Values"> </a>
 </h3>
-<p>All values in the positional encoding vector are bounded between -1 and 1, preventing numerical instability regardless of sequence length.</p>
+<p>All values in the positional encoding vector are bounded between -1 and 1, preventing numerical instability regardless of sequence length. This addresses the unboundedness issue of integer encodings.</p>
 <h3 id="3.-Frequency-Spectrum">
 <a class="anchor" href="#3.-Frequency-Spectrum" aria-hidden="true"><span class="octicon octicon-link"></span></a>3. Frequency Spectrum<a class="anchor-link" href="#3.-Frequency-Spectrum"> </a>
 </h3>
 <p>The use of different frequencies for different dimensions creates a rich representation. At lower values of t (positions near the beginning), high frequencies dominate, potentially creating overlap between position vectors. To avoid this, the frequencies are set to low values, achieved through the 10000 denominator term.</p>
-<p>Relationship b/w frequency, wavelength, and t → At lower values of t, frequency is high so there could be lots of overlap b/w position vectors. To avoid this, we try to lengthen the wavelength of function.</p>
+<p>As noted in our analysis: "Relationship between frequency, wavelength, and t → At lower values of t, frequency is high so there could be lots of overlap between position vectors. To avoid this, we try to lengthen the wavelength of function."</p>
 <h3 id="4.-Alternating-Sine-and-Cosine">
 <a class="anchor" href="#4.-Alternating-Sine-and-Cosine" aria-hidden="true"><span class="octicon octicon-link"></span></a>4. Alternating Sine and Cosine<a class="anchor-link" href="#4.-Alternating-Sine-and-Cosine"> </a>
 </h3>
 <p>The alternation between sine and cosine functions for consecutive dimensions serves multiple purposes:</p>
-<p>The vector of each token is unique
-The value of position vector is bounded &amp; located in a continuous space
-The model is easier to generalize on sequence lengths that are inconsistent with the distribution of training data</p>
-<p>This alternating pattern also facilitates the encoding of relative positions, as we'll see next.</p>
-<h2 id="The-Linear-Transformation-Property">
-<a class="anchor" href="#The-Linear-Transformation-Property" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Linear Transformation Property<a class="anchor-link" href="#The-Linear-Transformation-Property"> </a>
+<ul>
+<li>Creates unique vector representations for each position</li>
+<li>Ensures values remain bounded in a continuous space</li>
+<li>Facilitates generalization to sequence lengths not seen during training</li>
+</ul>
+<p>This alternating pattern also enables the encoding of relative positions through linear transformations, a property we'll explore next.</p>
+<h2 id="Advanced-Mathematical-Properties">
+<a class="anchor" href="#Advanced-Mathematical-Properties" aria-hidden="true"><span class="octicon octicon-link"></span></a>Advanced Mathematical Properties<a class="anchor-link" href="#Advanced-Mathematical-Properties"> </a>
 </h2>
-<p>One of the most powerful properties of sinusoidal encodings is that they can represent both absolute and relative positions efficiently. Different position vectors can be obtained through linear transformation → this would help represent both absolute &amp; relative position of tokens.</p>
+<h3 id="The-Linear-Transformation-Property">
+<a class="anchor" href="#The-Linear-Transformation-Property" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Linear Transformation Property<a class="anchor-link" href="#The-Linear-Transformation-Property"> </a>
+</h3>
+<p>One of the most powerful properties of sinusoidal encodings is that they can represent both absolute and relative positions efficiently. The key insight from our analysis: "Different position vectors can be obtained through linear transformation → this would help represent both absolute &amp; relative position of tokens."</p>
 <p>Mathematically, we can express this as:</p>
 <p>
 $$PE_{t+\Delta t} = [T_{\Delta t}] \cdot PE_t$$
-
-Where $[T_{\Delta t}]$ is a linear transformation matrix that depends only on the offset $\Delta t$, not on the absolute position $t$.</p>
+</p>
+<p>Where $[T_{\Delta t}]$ is a linear transformation matrix that depends only on the offset $\Delta t$, not on the absolute position $t$.</p>
 <p>This linear transformation corresponds to a rotation in the 2D subspace spanned by each sine-cosine pair. It follows from a fundamental property of sinusoidal functions:</p>
 <p>
-$$\begin{pmatrix} \sin(t+\Delta t) \ \cos(t+\Delta t) \end{pmatrix} = \begin{pmatrix} \cos \Delta t &amp; \sin \Delta t \ -\sin \Delta t &amp; \cos \Delta t \end{pmatrix} \begin{pmatrix} \sin(t) \ \cos(t) \end{pmatrix}$$
+$$\begin{pmatrix} \sin(t+\Delta t) \\ \cos(t+\Delta t) \end{pmatrix} = \begin{pmatrix} \cos \Delta t &amp; \sin \Delta t \\ -\sin \Delta t &amp; \cos \Delta t \end{pmatrix} \begin{pmatrix} \sin(t) \\ \cos(t) \end{pmatrix}$$
 </p>
 <p>This property means that the model can learn to "shift" positions through linear transformations, enabling it to understand relative positions in the sequence without explicitly computing them.</p>
-<h2 id="Inner-Product-and-Relative-Position-Dependency">
-<a class="anchor" href="#Inner-Product-and-Relative-Position-Dependency" aria-hidden="true"><span class="octicon octicon-link"></span></a>Inner Product and Relative Position Dependency<a class="anchor-link" href="#Inner-Product-and-Relative-Position-Dependency"> </a>
-</h2>
-<p>Perhaps the most remarkable property of sinusoidal positional encodings is how they encode relative distances through inner products. The inner product between two position encodings depends only on the relative distance between them, not their absolute positions.
-we see the mathematical derivation:
-
-$$\langle PE_m, PE_n \rangle = \text{Re}[P_m P_n^*]$$
-
-Where $P_m = e^{im\theta}$ and $P_n = e^{in\theta}$ in the complex number representation.
-Then:
-
-$$P_m P_n^* = e^{im\theta} \cdot e^{-in\theta} = e^{i(m-n)\theta}$$
-
-Taking the real part:
-
-$$\text{Re}[P_m P_n^*] = \cos((m-n)\theta)$$
-</p>
-<p>This elegant result shows that the inner product between two position encodings depends only on their relative offset (m-n), not their absolute positions. This is a crucial property for the self-attention mechanism, which relies heavily on inner products.</p>
-<p>Extending to the full d-dimensional case:</p>
+<h3 id="Linear-Position-Encoding:-A-Mathematical-Necessity">
+<a class="anchor" href="#Linear-Position-Encoding:-A-Mathematical-Necessity" aria-hidden="true"><span class="octicon octicon-link"></span></a>Linear Position Encoding: A Mathematical Necessity<a class="anchor-link" href="#Linear-Position-Encoding:-A-Mathematical-Necessity"> </a>
+</h3>
+<p>A crucial mathematical property of effective positional encodings is that they must satisfy the condition:</p>
 <p>
-$$\langle PE_m, PE_n \rangle = \sum_{i=0}^{d_{model}-1} \cos((m-n)\theta_i)$$
+$$\phi_m - \phi_n = \phi_{m-n}$$
 </p>
-<p>This means that the similarity between position vectors naturally captures their relative distance, with the similarity decreasing as the distance increases. This property elegantly addresses our requirement for consistent relative position encoding.</p>
-<h2 id="Asymptotic-Analysis-of-Oscillatory-Integrals">
-<a class="anchor" href="#Asymptotic-Analysis-of-Oscillatory-Integrals" aria-hidden="true"><span class="octicon octicon-link"></span></a>Asymptotic Analysis of Oscillatory Integrals<a class="anchor-link" href="#Asymptotic-Analysis-of-Oscillatory-Integrals"> </a>
-</h2>
-<p>Aanalysis of why the inner product between position encodings decays as the distance between positions increases. Let's explore this mathematical analysis in greater depth.</p>
-<h3 id="Why-Dominant-Contributions-Come-From-Slowly-Varying-Phases">
-<a class="anchor" href="#Why-Dominant-Contributions-Come-From-Slowly-Varying-Phases" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why Dominant Contributions Come From Slowly Varying Phases<a class="anchor-link" href="#Why-Dominant-Contributions-Come-From-Slowly-Varying-Phases"> </a>
-</h3>
-<p>For large values of |m-n|, we need to analyze integrals of the form:
-
-$$I = \int_0^1 e^{ix\phi(t)} dt$$
-
-Where x = m-n (the relative distance) and $\phi(t)$ is the phase function.
-For large |m-n|, integrals of form $\int e^{ix\phi} dt$ (where x = m-n) decay due to rapid oscillations.
-This is a consequence of the Riemann-Lebesgue formula, which states that:
-
-$$\lim_{x \to \infty} \int_a^b e^{ix\phi(t)} dt = 0$$
-
-Provided $\phi(t)$ is smooth and not constant.
-We specifically examine the case where:
-
-$$\phi(t) = e^{-\lambda t}$$
-
-Where $\lambda = \ln(10000)$ for the transformer positional encoding.
-For large x, dominant contribution comes from regions where phase $xe^{-\lambda t}$ (varies slowly). However, since $e^{-\lambda t}$ decreases slowly, there is no stationary point and the integral decays as 1/x.</p>
-<h3 id="Phase-Analysis-and-Substitution">
-<a class="anchor" href="#Phase-Analysis-and-Substitution" aria-hidden="true"><span class="octicon octicon-link"></span></a>Phase Analysis and Substitution<a class="anchor-link" href="#Phase-Analysis-and-Substitution"> </a>
-</h3>
-<p>For the integral:
-
-$$I = \int_0^1 e^{ix e^{-\lambda t}} dt$$
-
-You apply the substitution:
-
-$$s = e^{-\lambda t}$$
-
-
-$$t = -\frac{\ln s}{\lambda}$$
-
-
-$$dt = -\frac{1}{\lambda s}ds$$
-
-This transforms the integral to:
-
-$$I = \frac{1}{\lambda} \int_{e^{-\lambda}}^1 \frac{e^{ixs}}{s} ds$$
-</p>
-<h3 id="Integration-by-Parts">
-<a class="anchor" href="#Integration-by-Parts" aria-hidden="true"><span class="octicon octicon-link"></span></a>Integration by Parts<a class="anchor-link" href="#Integration-by-Parts"> </a>
-</h3>
-<p>Using $u = \frac{1}{s}$ and $dv = e^{ixs} ds$, you apply integration by parts:
-
-$$I = \frac{1}{\lambda} \left[ \frac{e^{ixs}}{ixs} \right]{e^{-\lambda}}^1 + \frac{1}{ix\lambda} \int{e^{-\lambda}}^1 \frac{e^{ixs}}{s^2} ds$$
-
-For large x, the boundary term dominates:
-
-$$I \approx \frac{1}{\lambda} \left( \frac{e^{ix} - e^{ixe^{-\lambda}}}{ix} \right) = O\left(\frac{1}{x}\right)$$
-
-This confirms that the integral decays as O(1/x) for large values of x, which means the correlation between positions decays as the relative distance increases.
-The boundary term dominates for large x: $I \approx \frac{1}{ix\lambda}(e^{ix} - e^{ixe^{-\lambda}}) = O(\frac{1}{x})$</p>
-<h2 id="Why-the-Frequency-Parameter-Choice-Leads-to-Decaying-Correlation">
-<a class="anchor" href="#Why-the-Frequency-Parameter-Choice-Leads-to-Decaying-Correlation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why the Frequency Parameter Choice Leads to Decaying Correlation<a class="anchor-link" href="#Why-the-Frequency-Parameter-Choice-Leads-to-Decaying-Correlation"> </a>
-</h2>
-<p>The specific choice of frequency parameter $\theta_k = 10000^{-2k/d}$ plays a critical role in how correlations decay with distance.</p>
-<h3 id="Sinusoidal-Positional-Encodings-and-Inner-Product-Calculation">
-<a class="anchor" href="#Sinusoidal-Positional-Encodings-and-Inner-Product-Calculation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sinusoidal Positional Encodings and Inner Product Calculation<a class="anchor-link" href="#Sinusoidal-Positional-Encodings-and-Inner-Product-Calculation"> </a>
-</h3>
-<p>Starting with the definition of positional encodings:
-
-$$P_{m,2i} = \sin\left(\frac{m}{10000^{2i/d}}\right)$$
-
-
-$$P_{m,2i+1} = \cos\left(\frac{m}{10000^{2i/d}}\right)$$
-
-The inner product between positions m and n is:
-
-$$\langle P_m, P_n \rangle = \sum_{k=0}^{d-1} \cos((m-n)\theta_k)$$
-
-Where $\theta_k = \frac{1}{10000^{2k/d}}$ for the different frequency bands.</p>
-<h4 id="Inner-Product-and-Relative-Position-Dependency">
-<a class="anchor" href="#Inner-Product-and-Relative-Position-Dependency" aria-hidden="true"><span class="octicon octicon-link"></span></a>Inner Product and Relative Position Dependency<a class="anchor-link" href="#Inner-Product-and-Relative-Position-Dependency"> </a>
+<p>This condition ensures that the encoding correctly captures relative positions. Let's prove that linear encodings of the form $\phi_m = m\theta$ are the only solution to this condition.</p>
+<h4 id="Step-1:-Key-Cases-Analysis">
+<a class="anchor" href="#Step-1:-Key-Cases-Analysis" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 1: Key Cases Analysis<a class="anchor-link" href="#Step-1:-Key-Cases-Analysis"> </a>
 </h4>
-<p>
-$$\langle P_m, P_n \rangle = \text{Re}\left[ \sum_{k=0}^{d-1} e^{i(m-n)\theta_k} \right]$$
-
-Each term $e^{i(m-n)\theta_k}$ corresponds to a cosine wave:
-
-$$\langle P_m, P_n \rangle = \sum_{k=0}^{d-1} \cos((m-n)\theta_k)$$
-</p>
-<h3 id="Decay-of-Inner-Product-with-|m-n|">
-<a class="anchor" href="#Decay-of-Inner-Product-with-%7Cm-n%7C" aria-hidden="true"><span class="octicon octicon-link"></span></a>Decay of Inner Product with |m-n|<a class="anchor-link" href="#Decay-of-Inner-Product-with-%7Cm-n%7C"> </a>
-</h3>
-<p>Decay of inner product with |m-n| - Critical observation for large |m-n|: inner product decays even though individual cosine terms are periodic. This arises from the superposition of high-frequency oscillations with varying θk, leading to destructive interference."
-For large d (high-dimensional embeddings), the sum can be approximated as an integral:
-
-$$\langle P_m, P_n \rangle \approx \frac{d}{2} \cdot \text{Re}\left[ \int_0^1 e^{i(m-n)\theta_t} dt \right]$$
-
-With $\theta_t = 10000^{-t}$ for $t \in [0,1]$.
-This transforms the problem into analyzing the asymptotic behavior of an oscillatory integral. Setting $\theta_t = e^{-\lambda t}$ where $\lambda = \ln(10000)$:
-
-$$I = \int_0^1 e^{i(m-n)e^{-\lambda t}} dt$$
-</p>
-<p>This integral decays as O(1/|m-n|) for large |m-n|, which proves why the correlation decreases as the relative distance increases.</p>
-<h3 id="Comparison-with-Power-Laws">
-<a class="anchor" href="#Comparison-with-Power-Laws" aria-hidden="true"><span class="octicon octicon-link"></span></a>Comparison with Power Laws<a class="anchor-link" href="#Comparison-with-Power-Laws"> </a>
-</h3>
-<p>For θ = t^-α, the integral also decays but rate depends on α:</p>
-<p>α = 1, I ∝ O(1/|x|)
-α = 2, I ∝ O(1/|x|^(1/2))</p>
-<p>This shows that the exponential frequency spacing used in transformer positional encodings (θₖ = 10000⁻²ᵏ/ᵈ) creates a specific decay rate that balances local and global attention appropriately.</p>
-<h2 id="The-Proof-that-φₘ---φₙ-=-φₘ₋ₙ-Implies-φₘ-=-mθ">
-<a class="anchor" href="#The-Proof-that-%CF%86%E2%82%98---%CF%86%E2%82%99-=-%CF%86%E2%82%98%E2%82%8B%E2%82%99-Implies-%CF%86%E2%82%98-=-m%CE%B8" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Proof that φₘ - φₙ = φₘ₋ₙ Implies φₘ = mθ<a class="anchor-link" href="#The-Proof-that-%CF%86%E2%82%98---%CF%86%E2%82%99-=-%CF%86%E2%82%98%E2%82%8B%E2%82%99-Implies-%CF%86%E2%82%98-=-m%CE%B8"> </a>
-</h2>
-<p>The rigorous proof of why the condition φₘ - φₙ = φₘ₋ₙ implies that φₘ must be of the form mθ for some constant θ. This is a crucial result for understanding why sinusoidal encodings work the way they do.</p>
-<h3 id="Step-1:-Setting-up-the-Equation">
-<a class="anchor" href="#Step-1:-Setting-up-the-Equation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 1: Setting up the Equation<a class="anchor-link" href="#Step-1:-Setting-up-the-Equation"> </a>
-</h3>
-<p>The condition is:
-
-$$\phi_m - \phi_n = \phi_{m-n} \quad \forall m,n \in \mathbb{Z}$$
-</p>
-<h3 id="Step-2:-Solving-for-Key-Cases">
-<a class="anchor" href="#Step-2:-Solving-for-Key-Cases" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 2: Solving for Key Cases<a class="anchor-link" href="#Step-2:-Solving-for-Key-Cases"> </a>
-</h3>
-<p>Case 1: If n=0
+<p><strong>Case 1: If n=0</strong>
 
 $$\phi_m - \phi_0 = \phi_{m-0} = \phi_m$$
 
-This implies:
-
-$$\phi_0 = 0$$
-
-Case 2: If n=1
+This implies $\phi_0 = 0$.</p>
+<p><strong>Case 2: If n=1</strong>
 
 $$\phi_m - \phi_1 = \phi_{m-1}$$
 
 Rearranging:
 
 $$\phi_m = \phi_{m-1} + \phi_1$$
-
-This gives us a recurrence relation.</p>
-<h3 id="Step-3:-Solving-the-Recurrence">
-<a class="anchor" href="#Step-3:-Solving-the-Recurrence" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 3: Solving the Recurrence<a class="anchor-link" href="#Step-3:-Solving-the-Recurrence"> </a>
-</h3>
+</p>
+<p>This gives us a recurrence relation.</p>
+<h4 id="Step-2:-Solving-the-Recurrence">
+<a class="anchor" href="#Step-2:-Solving-the-Recurrence" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 2: Solving the Recurrence<a class="anchor-link" href="#Step-2:-Solving-the-Recurrence"> </a>
+</h4>
 <p>Setting $\phi_1 = \theta$ (a constant), we can solve the recurrence:
 
 $$\phi_2 = \phi_1 + \theta = 2\theta$$
@@ -528,133 +390,209 @@ $$\phi_3 = \phi_2 + \theta = 3\theta$$
 
 
 $$\phi_4 = \phi_3 + \theta = 4\theta$$
-
-By induction, we get:
+</p>
+<p>By induction, we get:
 
 $$\phi_m = m\theta$$
 </p>
-<h3 id="Step-4:-General-Proof-of-Linearity">
-<a class="anchor" href="#Step-4:-General-Proof-of-Linearity" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 4: General Proof of Linearity<a class="anchor-link" href="#Step-4:-General-Proof-of-Linearity"> </a>
-</h3>
-<p>Formal proof that the recurrence $\phi_m = \phi_{m-1} + \theta$ has a unique solution $\phi_m = m\theta$.
-This solution satisfies the original condition:
+<h4 id="Step-3:-Verifying-the-Solution">
+<a class="anchor" href="#Step-3:-Verifying-the-Solution" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 3: Verifying the Solution<a class="anchor-link" href="#Step-3:-Verifying-the-Solution"> </a>
+</h4>
+<p>This solution satisfies the original condition:
 
 $$\phi_m - \phi_n = m\theta - n\theta = (m-n)\theta = \phi_{m-n}$$
 </p>
-<h3 id="Step-5:-Why-Non-Linear-Solutions-Fail">
-<a class="anchor" href="#Step-5:-Why-Non-Linear-Solutions-Fail" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 5: Why Non-Linear Solutions Fail<a class="anchor-link" href="#Step-5:-Why-Non-Linear-Solutions-Fail"> </a>
-</h3>
-<p>Why non-linear functions fail to satisfy the condition:
-If $\phi_m$ were non-linear (for example, $\phi_m = m^2\theta$):
+<h4 id="Step-4:-Why-Non-Linear-Solutions-Fail">
+<a class="anchor" href="#Step-4:-Why-Non-Linear-Solutions-Fail" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 4: Why Non-Linear Solutions Fail<a class="anchor-link" href="#Step-4:-Why-Non-Linear-Solutions-Fail"> </a>
+</h4>
+<p>If $\phi_m$ were non-linear (for example, $\phi_m = m^2\theta$):
 
 $$\phi_m - \phi_n = m^2\theta - n^2\theta = (m^2 - n^2)\theta = (m+n)(m-n)\theta$$
-
-But:
+</p>
+<p>But:
 
 $$\phi_{m-n} = (m-n)^2\theta$$
+</p>
+<p>Since $(m+n)(m-n) \neq (m-n)^2$ in general, non-linear functions don't satisfy the condition.</p>
+<p>Therefore, the only solution to $\phi_m - \phi_n = \phi_{m-n}$ is the linear function $\phi_m = m\theta$. This mathematical necessity explains why sinusoidal encodings with linearly scaled frequencies are used in transformers.</p>
+<h3 id="Inner-Product-and-Relative-Position-Dependency">
+<a class="anchor" href="#Inner-Product-and-Relative-Position-Dependency" aria-hidden="true"><span class="octicon octicon-link"></span></a>Inner Product and Relative Position Dependency<a class="anchor-link" href="#Inner-Product-and-Relative-Position-Dependency"> </a>
+</h3>
+<p>Perhaps the most remarkable property of sinusoidal positional encodings is how they encode relative distances through inner products. The inner product between two position encodings depends only on the relative distance between them, not their absolute positions.</p>
+<p>Let's derive this mathematically, starting with a complex number representation:</p>
+<p>
+$$\langle PE_m, PE_n \rangle = \text{Re}[P_m P_n^*]$$
+</p>
+<p>Where $P_m = e^{im\theta}$ and $P_n = e^{in\theta}$ in the complex number representation.</p>
+<p>Then:
 
-Since $(m+n)(m-n) \neq (m-n)^2$ in general, non-linear functions don't satisfy the condition.</p>
-<p>The only solution [to] $\phi_m - \phi_n = \phi_{m-n}$ is a linear function $\phi_m = m\theta$. This ensures positional encoding's angle differences encode relative positions.</p>
-<h2 id="Stationary-Phase-Approximation-and-Oscillatory-Integrals">
-<a class="anchor" href="#Stationary-Phase-Approximation-and-Oscillatory-Integrals" aria-hidden="true"><span class="octicon octicon-link"></span></a>Stationary Phase Approximation and Oscillatory Integrals<a class="anchor-link" href="#Stationary-Phase-Approximation-and-Oscillatory-Integrals"> </a>
-</h2>
-<p>Detailed examination of asymptotic analysis for oscillatory integrals. This section provides important mathematical intuition for why positional encoding works the way it does.</p>
-<h3 id="Stationary-Phase-Approximation">
-<a class="anchor" href="#Stationary-Phase-Approximation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Stationary Phase Approximation<a class="anchor-link" href="#Stationary-Phase-Approximation"> </a>
-</h3>
-<p>For oscillatory integrals of the form:
+$$P_m P_n^* = e^{im\theta} \cdot e^{-in\theta} = e^{i(m-n)\theta}$$
+</p>
+<p>Taking the real part:
 
-$$\int_a^b e^{ix\phi(t)} dt$$
-
-The stationary phase approximation states that the dominant contributions arise near points where the phase $\phi(t)$ is stationary (i.e., where $\phi'(t) = 0$). These regions exhibit slow oscillations leading to constructive interference.</p>
-<p>For oscillatory integrals of form $\int_a^b e^{ix\phi(t)}dt$, the dominant contributions arise near points where phase $\phi(t)$ is stationary (i.e., where $\phi'(t) = 0$). These regions exhibit slow oscillations leading to constructive interference.</p>
-<h2 id="Analysis-for-Transformer-Positional-Encoding">
-<a class="anchor" href="#Analysis-for-Transformer-Positional-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>Analysis for Transformer Positional Encoding<a class="anchor-link" href="#Analysis-for-Transformer-Positional-Encoding"> </a>
+$$\text{Re}[P_m P_n^*] = \cos((m-n)\theta)$$
+</p>
+<p>This elegant result shows that the inner product between two position encodings depends only on their relative offset (m-n), not their absolute positions. This is a crucial property for the self-attention mechanism, which relies heavily on inner products.</p>
+<p>Extending to the full d-dimensional case:</p>
+<p>
+$$\langle PE_m, PE_n \rangle = \sum_{i=0}^{d_{\text{model}}-1} \cos((m-n)\theta_i)$$
+</p>
+<p>This means that the similarity between position vectors naturally captures their relative distance, with the similarity decreasing as the distance increases. This property elegantly addresses our requirement for consistent relative position encoding.</p>
+<h2 id="Asymptotic-Behavior-and-Frequency-Choice">
+<a class="anchor" href="#Asymptotic-Behavior-and-Frequency-Choice" aria-hidden="true"><span class="octicon octicon-link"></span></a>Asymptotic Behavior and Frequency Choice<a class="anchor-link" href="#Asymptotic-Behavior-and-Frequency-Choice"> </a>
 </h2>
-<p>In the case of $\phi(t) = e^{-\lambda t}$ with $\lambda = \ln(10000)$:</p>
-<h3 id="Phase-Analysis:">
-<a class="anchor" href="#Phase-Analysis:" aria-hidden="true"><span class="octicon octicon-link"></span></a>Phase Analysis:<a class="anchor-link" href="#Phase-Analysis:"> </a>
+<h3 id="Why-Inner-Products-Decay-with-Distance">
+<a class="anchor" href="#Why-Inner-Products-Decay-with-Distance" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why Inner Products Decay with Distance<a class="anchor-link" href="#Why-Inner-Products-Decay-with-Distance"> </a>
 </h3>
-<p>$\phi'(t) = -\lambda e^{-\lambda t} &lt; 0$ for all $t &gt; 0$</p>
-<h3 id="No-Stationary-Point:">
-<a class="anchor" href="#No-Stationary-Point:" aria-hidden="true"><span class="octicon octicon-link"></span></a>No Stationary Point:<a class="anchor-link" href="#No-Stationary-Point:"> </a>
+<p>A critical feature of the positional encoding is how the inner product between positions decays as their distance increases. This creates a natural attention bias toward local context while still allowing global interactions when needed.</p>
+<p>For large values of |m-n|, we need to analyze integrals of the form:</p>
+<p>
+$$I = \int_0^1 e^{ix\phi(t)} dt$$
+</p>
+<p>Where x = m-n (the relative distance) and $\phi(t)$ is the phase function.</p>
+<p>For large |m-n|, these integrals decay due to rapid oscillations. This is a consequence of the Riemann-Lebesgue formula, which states that:</p>
+<p>
+$$\lim_{x \to \infty} \int_a^b e^{ix\phi(t)} dt = 0$$
+</p>
+<p>Provided $\phi(t)$ is smooth and not constant.</p>
+<h3 id="Mathematical-Analysis-of-Decay-Rate">
+<a class="anchor" href="#Mathematical-Analysis-of-Decay-Rate" aria-hidden="true"><span class="octicon octicon-link"></span></a>Mathematical Analysis of Decay Rate<a class="anchor-link" href="#Mathematical-Analysis-of-Decay-Rate"> </a>
 </h3>
-<p>φ(t) = e^-λt with derivative: φ'(t) = -λe^-λt → No stationary point. φ'(t) ≠ 0 ∀ t ∈ [0,1]. Since e^-λt &gt; 0</p>
-<h3 id="Monotonic-Decay:">
-<a class="anchor" href="#Monotonic-Decay:" aria-hidden="true"><span class="octicon octicon-link"></span></a>Monotonic Decay:<a class="anchor-link" href="#Monotonic-Decay:"> </a>
+<p>For the specific case of transformer positional encodings with $\phi(t) = e^{-\lambda t}$ where $\lambda = \ln(10000)$:</p>
+<p>
+$$I = \int_0^1 e^{ix e^{-\lambda t}} dt$$
+</p>
+<p>The key insight is: "For large x, dominant contribution comes from regions where phase $xe^{-\lambda t}$ varies slowly. However, since $e^{-\lambda t}$ decreases slowly, there is no stationary point and the integral decays as 1/x."</p>
+<p>We can analyze this more rigorously through substitution and integration by parts:</p>
+<h4 id="Step-1:-Substitution">
+<a class="anchor" href="#Step-1:-Substitution" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 1: Substitution<a class="anchor-link" href="#Step-1:-Substitution"> </a>
+</h4>
+<p>Let $s = e^{-\lambda t}$, then $t = -\frac{\ln s}{\lambda}$ and $dt = -\frac{1}{\lambda s}ds$.</p>
+<p>This transforms the integral to:</p>
+<p>
+$$I = \frac{1}{\lambda} \int_{e^{-\lambda}}^1 \frac{e^{ixs}}{s} ds$$
+</p>
+<h4 id="Step-2:-Integration-by-Parts">
+<a class="anchor" href="#Step-2:-Integration-by-Parts" aria-hidden="true"><span class="octicon octicon-link"></span></a>Step 2: Integration by Parts<a class="anchor-link" href="#Step-2:-Integration-by-Parts"> </a>
+</h4>
+<p>Using $u = \frac{1}{s}$ and $dv = e^{ixs} ds$, we apply integration by parts:</p>
+<p>
+$$I = \frac{1}{\lambda} \left[ \frac{e^{ixs}}{ixs} \right]_{e^{-\lambda}}^1 + \frac{1}{ix\lambda} \int_{e^{-\lambda}}^1 \frac{e^{ixs}}{s^2} ds$$
+</p>
+<p>For large x, the boundary term dominates:</p>
+<p>
+$$I \approx \frac{1}{\lambda} \left( \frac{e^{ix} - e^{ixe^{-\lambda}}}{ix} \right) = O\left(\frac{1}{x}\right)$$
+</p>
+<p>This confirms that the integral decays as O(1/x) for large values of x, which means the correlation between positions decays as the relative distance increases.</p>
+<h3 id="The-Role-of-the-Frequency-Parameter">
+<a class="anchor" href="#The-Role-of-the-Frequency-Parameter" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Role of the Frequency Parameter<a class="anchor-link" href="#The-Role-of-the-Frequency-Parameter"> </a>
 </h3>
-<p>Monotonic decay: φ(t) decreases exponentially and φ'(t) never changes sign</p>
-<p>This absence of stationary points explains why the integral decays as O(1/|x|) rather than the faster decay rates typically seen in stationary phase approximations (which can be O(1/|x|^(1/2)) or faster).</p>
-<p>For large x, dominant contribution comes from region where phase xe^-λt (varies slowly). However, since e^-λt decreases slowly, there is no stationary point and the integral decays as 1/x.</p>
-<p>This mathematical insight explains why the transformer positional encoding creates a gradual decay in attention with distance, rather than a sharp cutoff or a perfectly uniform attention pattern.</p>
-<h2 id="Summary-of-Mathematical-Properties">
-<a class="anchor" href="#Summary-of-Mathematical-Properties" aria-hidden="true"><span class="octicon octicon-link"></span></a>Summary of Mathematical Properties<a class="anchor-link" href="#Summary-of-Mathematical-Properties"> </a>
-</h2>
-<p>Bringing these mathematical analyses together:</p>
+<p>The specific choice of frequency parameter $\theta_k = 10000^{-2k/d_{\text{model}}}$ plays a critical role in how correlations decay with distance.</p>
+<p>For the inner product between positions m and n:</p>
+<p>
+$$\langle PE_m, PE_n \rangle = \sum_{k=0}^{d-1} \cos((m-n)\theta_k)$$
+</p>
+<p>For large d (high-dimensional embeddings), this sum can be approximated as an integral:</p>
+<p>
+$$\langle PE_m, PE_n \rangle \approx \frac{d}{2} \cdot \text{Re}\left[ \int_0^1 e^{i(m-n)\theta_t} dt \right]$$
+</p>
+<p>With $\theta_t = 10000^{-t}$ for $t \in [0,1]$, which corresponds to $\theta_t = e^{-\lambda t}$ where $\lambda = \ln(10000)$.</p>
+<p>Our analysis shows that this integral decays as O(1/|m-n|) for large |m-n|, creating a smooth falloff in attention with distance.</p>
+<p>Interestingly, alternate frequency choices would produce different decay rates:</p>
 <ul>
-<li>The condition φₘ - φₙ = φₘ₋ₙ forces the positional encoding angles to follow a linear pattern φₘ = mθ, which is exactly what the sinusoidal encoding provides.</li>
-<li>The specific choice of frequency parameter θₖ = 10000⁻²ᵏ/ᵈ creates an inner product that decays as O(1/|m-n|) for large distances, due to the absence of stationary points in the phase function.</li>
-<li>This decay property helps the model naturally focus more on local context while still maintaining the ability to detect long-range dependencies when needed.</li>
+<li>For θ = t^-1, I ∝ O(1/|x|)</li>
+<li>For θ = t^-2, I ∝ O(1/|x|^(1/2))</li>
 </ul>
-<h3 id="Why-Non-Linear-Solutions-Fail">
-<a class="anchor" href="#Why-Non-Linear-Solutions-Fail" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why Non-Linear Solutions Fail<a class="anchor-link" href="#Why-Non-Linear-Solutions-Fail"> </a>
+<p>The exponential frequency spacing used in transformer positional encodings creates a balance between local and global attention that works well in practice.</p>
+<h3 id="Absence-of-Stationary-Points">
+<a class="anchor" href="#Absence-of-Stationary-Points" aria-hidden="true"><span class="octicon octicon-link"></span></a>Absence of Stationary Points<a class="anchor-link" href="#Absence-of-Stationary-Points"> </a>
 </h3>
-<p>If $\phi_m$ were non-linear (e.g., $\phi_m = m^2\theta$):
-
-$$\phi_m - \phi_n = m^2\theta - n^2\theta = (m^2 - n^2)\theta = (m-n)(m+n)\theta \neq \phi_{m-n} = (m-n)^2\theta$$
-
-This confirms that only the linear relationship $\phi_m = m\theta$ correctly encodes relative positions, explaining why sinusoidal encodings with linearly scaled frequencies are used.</p>
-<p>The only solution $\phi_m - \phi_n = \phi_{m-n}$ is a linear function $\phi_m = m\theta$. This ensures positional encoding's angle differences encode relative positions.</p>
-<h2 id="Why-This-Works:-A-Taylor-Expansion-Perspective">
-<a class="anchor" href="#Why-This-Works:-A-Taylor-Expansion-Perspective" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why This Works: A Taylor Expansion Perspective<a class="anchor-link" href="#Why-This-Works:-A-Taylor-Expansion-Perspective"> </a>
+<p>The specific mathematical behavior of the positional encoding comes from the absence of stationary points in the phase function. For the phase function $\phi(t) = e^{-\lambda t}$:</p>
+<ul>
+<li>Phase Analysis: $\phi'(t) = -\lambda e^{-\lambda t} &lt; 0$ for all $t &gt; 0$</li>
+<li>No Stationary Point: $\phi'(t) \neq 0$ for all $t \in [0,1]$</li>
+<li>Monotonic Decay: $\phi(t)$ decreases exponentially and $\phi'(t)$ never changes sign</li>
+</ul>
+<p>This absence of stationary points explains why the integral decays as O(1/|x|) rather than the faster decay rates typically seen in stationary phase approximations (which can be O(1/|x|^(1/2)) or faster).</p>
+<p>This creates a gradual decay in attention with distance, rather than a sharp cutoff or a perfectly uniform attention pattern.</p>
+<h2 id="Breaking-Symmetry:-A-Taylor-Expansion-Perspective">
+<a class="anchor" href="#Breaking-Symmetry:-A-Taylor-Expansion-Perspective" aria-hidden="true"><span class="octicon octicon-link"></span></a>Breaking Symmetry: A Taylor Expansion Perspective<a class="anchor-link" href="#Breaking-Symmetry:-A-Taylor-Expansion-Perspective"> </a>
 </h2>
-<p>This analysis revolves around using Taylor expansion to explain why adding positional encodings breaks the symmetry in transformer models.
-For a pure attention model without attention mask, the function is fully symmetric:
-
+<p>Another insightful way to understand positional encodings is through Taylor expansion. For a pure attention model without position information, the function is fully symmetric:</p>
+<p>
 $$f(x_1, x_2, ..., x_n, ...) = f(x_n, ..., x_1, ...)$$
-
-This means transformers cannot recognize position - the output would be the same regardless of token order. By adding positional encodings, we break this symmetry.
-Using Taylor expansion:
-
-$$\tilde{f}(..., x_m, ..., x_n, ...) = f(..., x_m + p_m, ..., x_n + p_n, ...)$$
-
-
-$$\tilde{f} = f + p_m \frac{\partial f}{\partial x_m} + p_n \frac{\partial f}{\partial x_n} + \frac{1}{2}p_m^2 \frac{\partial^2 f}{\partial x_m^2} + ...$$
-
-Where the terms $p_m \frac{\partial f}{\partial x_m}$ contain position-dependent information. As long as encoding vector of each position is different, this breaks the symmetry and can be used to replace f.</p>
+</p>
+<p>This means transformers cannot recognize position - the output would be the same regardless of token order. By adding positional encodings, we break this symmetry.</p>
+<p>Using Taylor expansion:</p>
+<p>
+$$\tilde{f}(..., x_m + p_m, ..., x_n + p_n, ...) = f(..., x_m, ..., x_n, ...) + p_m \frac{\partial f}{\partial x_m} + p_n \frac{\partial f}{\partial x_n} + \frac{1}{2}p_m^2 \frac{\partial^2 f}{\partial x_m^2} + ...$$
+</p>
+<p>Where the terms $p_m \frac{\partial f}{\partial x_m}$ contain position-dependent information. The key insight: "As long as encoding vector of each position is different, this breaks the symmetry."</p>
 <p>This Taylor expansion shows how positional information gets integrated with content information, allowing the model to distinguish between different token arrangements.</p>
 <h2 id="Practical-Implications-for-Transformer-Models">
 <a class="anchor" href="#Practical-Implications-for-Transformer-Models" aria-hidden="true"><span class="octicon octicon-link"></span></a>Practical Implications for Transformer Models<a class="anchor-link" href="#Practical-Implications-for-Transformer-Models"> </a>
 </h2>
 <p>The mathematical properties we've explored have significant practical implications for transformer models:</p>
-<p>Generalization to unseen sequence lengths: Since sinusoidal encodings are defined for any position value, they can naturally handle sequences longer than those seen during training.
-Consistent relative positioning: The inner product properties ensure that relative positions are encoded consistently regardless of sequence length.
-Natural attention decay: The asymptotic decay properties align with the intuition that distant tokens typically have weaker relationships.
-Parameter efficiency: Unlike learned positional embeddings, sinusoidal encodings don't require additional trainable parameters.
-Computational efficiency: The encodings can be computed on-the-fly rather than stored in a lookup table.</p>
+<ol>
+<li>
+<p><strong>Generalization to unseen sequence lengths</strong>: Since sinusoidal encodings are defined for any position value, they can naturally handle sequences longer than those seen during training. This directly follows from the continuous nature of sine and cosine functions.</p>
+</li>
+<li>
+<p><strong>Consistent relative positioning</strong>: The inner product properties ensure that relative positions are encoded consistently regardless of sequence length. As we proved, the inner product $\langle PE_m, PE_n \rangle$ depends only on (m-n), not on absolute positions.</p>
+</li>
+<li>
+<p><strong>Natural attention decay</strong>: The asymptotic decay properties (O(1/|m-n|)) align with the intuition that distant tokens typically have weaker relationships. This creates an inductive bias toward local context while still allowing global interactions.</p>
+</li>
+<li>
+<p><strong>Parameter efficiency</strong>: Unlike learned positional embeddings, sinusoidal encodings don't require additional trainable parameters. The encoding is deterministic and can be computed on-the-fly.</p>
+</li>
+<li>
+<p><strong>Computational efficiency</strong>: The encodings can be computed on-the-fly rather than stored in a lookup table, saving memory for very long sequences.</p>
+</li>
+</ol>
+<h2 id="Summary-of-Mathematical-Properties">
+<a class="anchor" href="#Summary-of-Mathematical-Properties" aria-hidden="true"><span class="octicon octicon-link"></span></a>Summary of Mathematical Properties<a class="anchor-link" href="#Summary-of-Mathematical-Properties"> </a>
+</h2>
+<p>Bringing these mathematical analyses together:</p>
+<ol>
+<li>
+<p>The condition φₘ - φₙ = φₘ₋ₙ forces positional encoding angles to follow a linear pattern φₘ = mθ, which is exactly what sinusoidal encoding provides.</p>
+</li>
+<li>
+<p>The specific choice of frequency parameter θₖ = 10000⁻²ᵏ/ᵈ creates an inner product that decays as O(1/|m-n|) for large distances, due to the absence of stationary points in the phase function.</p>
+</li>
+<li>
+<p>This decay property helps the model naturally focus more on local context while still maintaining the ability to detect long-range dependencies when needed.</p>
+</li>
+</ol>
+<p>As summarized in our analysis:</p>
 <ul>
-<li>Sinusoidal encodings use frequencies that decay exponentially across dimensions</li>
-<li>Inner Product Decay: Results from destructive interference in high-frequency oscillatory integrals</li>
-<li>Design choice: θₖ = 10000⁻²ᵏ/ᵈ ensures smooth frequency coverage &amp; practical decay properties</li>
+<li>"Sinusoidal encodings use frequencies that decay exponentially across dimensions"</li>
+<li>"Inner Product Decay: Results from destructive interference in high-frequency oscillatory integrals"</li>
+<li>"Design choice: θₖ = 10000⁻²ᵏ/ᵈ ensures smooth frequency coverage &amp; practical decay properties"</li>
 </ul>
 <h2 id="Conclusion">
 <a class="anchor" href="#Conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclusion<a class="anchor-link" href="#Conclusion"> </a>
 </h2>
-<p>The sinusoidal positional encoding used in transformer models represents a beautiful intersection of mathematical elegance and practical utility. By encoding positions using sinusoidal functions at different frequencies, transformers gain the ability to understand sequence order while maintaining their parallelization advantages.
-The key insights we've explored include:</p>
-<p>How sinusoidal functions provide a bounded, continuous representation of position
-Why the inner product between position encodings naturally captures relative distances
-How the specific frequency progression (10000⁻²ᵏ/ᵈ) creates a balanced representation
-Why linear position encoding (φₘ = mθ) is the only solution that correctly encodes relative positions
-How the asymptotic behavior creates a natural decay for distant token relationships</p>
-<p>These mathematical properties combine to create a positional encoding scheme that satisfies all our requirements: representing absolute positions, maintaining consistent relative distances, and generalizing to unseen sequence lengths.
-Understanding these mathematical foundations not only gives us deeper insight into transformer models but also opens doors to potential improvements and adaptations for specific tasks or domains. The elegant mathematics behind sinusoidal positional encodings reveals how transformers achieve their remarkable ability to understand sequence order while maintaining their computational advantages.</p>
+<p>The sinusoidal positional encoding used in transformer models represents a beautiful intersection of mathematical elegance and practical utility. By encoding positions using sinusoidal functions at different frequencies, transformers gain the ability to understand sequence order while maintaining their parallelization advantages.</p>
+<p>The key insights we've explored include:</p>
+<ol>
+<li>How sinusoidal functions provide a bounded, continuous representation of position</li>
+<li>Why the inner product between position encodings naturally captures relative distances</li>
+<li>How the specific frequency progression (10000⁻²ᵏ/ᵈ) creates a balanced representation</li>
+<li>Why linear position encoding (φₘ = mθ) is the only solution that correctly encodes relative positions</li>
+<li>How the asymptotic behavior creates a natural decay for distant token relationships</li>
+</ol>
+<p>These mathematical properties combine to create a positional encoding scheme that satisfies all our requirements: representing absolute positions, maintaining consistent relative distances, and generalizing to unseen sequence lengths.</p>
+<p>Understanding these mathematical foundations not only gives us deeper insight into transformer models but also opens doors to potential improvements and adaptations for specific tasks or domains. The elegant mathematics behind sinusoidal positional encodings reveals how transformers achieve their remarkable ability to understand sequence order while maintaining their computational advantages.</p>
 <h2 id="References">
 <a class="anchor" href="#References" aria-hidden="true"><span class="octicon octicon-link"></span></a>References<a class="anchor-link" href="#References"> </a>
 </h2>
 <ul>
 <li>Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., &amp; Polosukhin, I. (2017). Attention is all you need. In Advances in Neural Information Processing Systems (Vol. 30).</li>
-<li><a href="https://kexue.fm/archives/8231">https://kexue.fm/archives/8231</a></li>
+<li>Kazemnejad, A. (2019). Transformer Architecture: The Positional Encoding. <a href="https://kazemnejad.com/blog/transformer_architecture_positional_encoding/">https://kazemnejad.com/blog/transformer_architecture_positional_encoding/</a>
+</li>
+<li>Wang, P., &amp; Peng, X. (2021). Understanding and Improving Positional Encoding for Transformers. ArXiv:2012.15832.</li>
 </ul>
 
 </div>
