@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Unveiling Position Encoding in Transformers - From Absolute to Relative with RoPE | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Unveiling Position Encoding in Transformers - From Absolute to Relative with RoPE" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Explore transformer position encodings, from absolute sinusoidal methods through T5 and XLNet innovations to Rotary Position Embedding (RoPE), detailing how complex exponentials and rotational geometry elegantly solve the challenge of encoding token positions in a way that preserves critical relative relationships." />
+<meta property="og:description" content="Explore transformer position encodings, from absolute sinusoidal methods through T5 and XLNet innovations to Rotary Position Embedding (RoPE), detailing how complex exponentials and rotational geometry elegantly solve the challenge of encoding token positions in a way that preserves critical relative relationships." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/llm/transformers/math/deeplearning/2025/03/01/transformers-positional-encoding-evolution.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/llm/transformers/math/deeplearning/2025/03/01/transformers-positional-encoding-evolution.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/rope.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-03-01T00:00:00-06:00" />
+<script type="application/ld+json">
+{"headline":"Unveiling Position Encoding in Transformers - From Absolute to Relative with RoPE","url":"https://numb3r33.github.io/experiments/llm/transformers/math/deeplearning/2025/03/01/transformers-positional-encoding-evolution.html","dateModified":"2025-03-01T00:00:00-06:00","datePublished":"2025-03-01T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/rope.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/llm/transformers/math/deeplearning/2025/03/01/transformers-positional-encoding-evolution.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"Explore transformer position encodings, from absolute sinusoidal methods through T5 and XLNet innovations to Rotary Position Embedding (RoPE), detailing how complex exponentials and rotational geometry elegantly solve the challenge of encoding token positions in a way that preserves critical relative relationships.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Unveiling Position Encoding in Transformers - From Absolute to Relative with RoPE</h1><p class="page-description">Explore transformer position encodings, from absolute sinusoidal methods through T5 and XLNet innovations to Rotary Position Embedding (RoPE), detailing how complex exponentials and rotational geometry elegantly solve the challenge of encoding token positions in a way that preserves critical relative relationships.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-03-01T00:00:00-06:00" itemprop="datePublished">
+        Mar 1, 2025
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      16 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#llm">llm</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#transformers">transformers</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#math">math</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2025-03-01-transformers-positional-encoding-evolution.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2025-03-01-transformers-positional-encoding-evolution.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2025-03-01-transformers-positional-encoding-evolution.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Introduction">Introduction </a></li>
+<li class="toc-entry toc-h2"><a href="#1.-Position-Encoding-in-Transformers:-Evolution-and-Approaches">1. Position Encoding in Transformers: Evolution and Approaches </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#1.1-Absolute-Position-Encoding:-The-Original-Approach">1.1 Absolute Position Encoding: The Original Approach </a></li>
+<li class="toc-entry toc-h3"><a href="#1.2-T5's-Simplification:-Decoupling-Content-and-Position">1.2 T5&#39;s Simplification: Decoupling Content and Position </a></li>
+<li class="toc-entry toc-h3"><a href="#1.3-XLNet-Style:-Relative-Position-Encoding">1.3 XLNet-Style: Relative Position Encoding </a></li>
+<li class="toc-entry toc-h3"><a href="#1.4-The-Complex-Form-Approach">1.4 The Complex Form Approach </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#2.-Rotary-Position-Encoding:-The-Foundation">2. Rotary Position Encoding: The Foundation </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#2.1-The-Core-Idea">2.1 The Core Idea </a></li>
+<li class="toc-entry toc-h3"><a href="#1.2-Applying-Rotations-to-Embeddings">1.2 Applying Rotations to Embeddings </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#2.-The-Complex-Number-Approach">2. The Complex Number Approach </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#2.1-Reframing-in-the-Complex-Domain">2.1 Reframing in the Complex Domain </a></li>
+<li class="toc-entry toc-h3"><a href="#2.2-Verifying-the-Properties">2.2 Verifying the Properties </a></li>
+<li class="toc-entry toc-h3"><a href="#2.3-Expanding-the-Multiplication">2.3 Expanding the Multiplication </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#3.-Complex-Form:-A-Deeper-Dive">3. Complex Form: A Deeper Dive </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#3.1-Multiple-Word-Vectors-and-Their-Representation">3.1 Multiple Word Vectors and Their Representation </a></li>
+<li class="toc-entry toc-h3"><a href="#3.2-Understanding-the-Two-Dimensional-Vector-Representation">3.2 Understanding the Two-Dimensional Vector Representation </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#4.-Scaling-to-Higher-Dimensions">4. Scaling to Higher Dimensions </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#4.1-Extending-to-d-dimensional-Vectors">4.1 Extending to d-dimensional Vectors </a></li>
+<li class="toc-entry toc-h3"><a href="#3.2-Position-Encoding-Scheme">3.2 Position Encoding Scheme </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#5.-RoPE:-Relative-Position-Encoding">5. RoPE: Relative Position Encoding </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#5.1-Complex-Form:-A-Unified-Approach">5.1 Complex Form: A Unified Approach </a></li>
+<li class="toc-entry toc-h3"><a href="#5.2-Key-Idea-of-RoPE">5.2 Key Idea of RoPE </a></li>
+<li class="toc-entry toc-h3"><a href="#4.2-Long-Range-Attenuation">4.2 Long-Range Attenuation </a></li>
+<li class="toc-entry toc-h3"><a href="#4.3-Implementation-in-Attention">4.3 Implementation in Attention </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#5.-Advantages-of-Relative-Position-Encoding">5. Advantages of Relative Position Encoding </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#5.1-Why-Relative-Position-Works-Better">5.1 Why Relative Position Works Better </a></li>
+<li class="toc-entry toc-h3"><a href="#5.2-Mathematical-Proof">5.2 Mathematical Proof </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#6.-Technical-Implementation">6. Technical Implementation </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#6.1-Future-improvements">6.1 Future improvements </a></li>
+<li class="toc-entry toc-h3"><a href="#6.2-Standard-Self-Attention-with-Absolute-Position-Encoding">6.2 Standard Self-Attention with Absolute Position Encoding </a></li>
+<li class="toc-entry toc-h3"><a href="#6.2-RoPE's-Modification">6.2 RoPE&#39;s Modification </a></li>
+<li class="toc-entry toc-h3"><a href="#6.3-Defining-Relative-Position-Vectors">6.3 Defining Relative Position Vectors </a></li>
+<li class="toc-entry toc-h3"><a href="#6.4-Why-Projection-Matrices-are-Needed">6.4 Why Projection Matrices are Needed </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#Conclusion">Conclusion </a></li>
+<li class="toc-entry toc-h2"><a href="#References:">References: </a></li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2025-03-01-transformers-positional-encoding-evolution.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Introduction">
+<a class="anchor" href="#Introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction<a class="anchor-link" href="#Introduction"> </a>
+</h2>
+<p>Let's start with the mathematical foundations of absolute position encodings, examining the limitations that led to relative approaches, exploring complex number representations, and ultimately showing how these concepts enable transformer models to effectively capture positional relationships.</p>
+<h2 id="1.-Position-Encoding-in-Transformers:-Evolution-and-Approaches">
+<a class="anchor" href="#1.-Position-Encoding-in-Transformers:-Evolution-and-Approaches" aria-hidden="true"><span class="octicon octicon-link"></span></a>1. Position Encoding in Transformers: Evolution and Approaches<a class="anchor-link" href="#1.-Position-Encoding-in-Transformers:-Evolution-and-Approaches"> </a>
+</h2>
+<h3 id="1.1-Absolute-Position-Encoding:-The-Original-Approach">
+<a class="anchor" href="#1.1-Absolute-Position-Encoding:-The-Original-Approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.1 Absolute Position Encoding: The Original Approach<a class="anchor-link" href="#1.1-Absolute-Position-Encoding:-The-Original-Approach"> </a>
+</h3>
+<p>The original transformer model introduced sinusoidal position encodings:</p>
+<p>$PE_{(pos, 2i)} = \sin(pos/10000^{2i/d_{model}})$
+$PE_{(pos, 2i+1)} = \cos(pos/10000^{2i/d_{model}})$</p>
+<p>Where $pos$ is the position and $i$ is the dimension. This encoding has two key properties:</p>
+<ol>
+<li>It provides a unique encoding for each position</li>
+<li>The model might extrapolate to sequence lengths unseen during training</li>
+</ol>
+<p>However, this absolute approach faces limitations when dealing with relative relationships between tokens, which are crucial for many linguistic structures.</p>
+<h3 id="1.2-T5's-Simplification:-Decoupling-Content-and-Position">
+<a class="anchor" href="#1.2-T5's-Simplification:-Decoupling-Content-and-Position" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.2 T5's Simplification: Decoupling Content and Position<a class="anchor-link" href="#1.2-T5's-Simplification:-Decoupling-Content-and-Position"> </a>
+</h3>
+<p>T5 (Text-to-Text Transfer Transformer) modified the attention mechanism by explicitly decoupling content and position:</p>
+<p>$q_i \cdot k_j^T = x_i W_Q W_K^T x_j^T + x_i W_Q W_K^T p_j^T + p_i W_Q W_K^T x_j^T + p_i W_Q W_K^T p_j^T$</p>
+<p>This expands into four distinct terms:</p>
+<ul>
+<li>Input-input: $x_i W_Q W_K^T x_j^T$ (content-content interaction)</li>
+<li>Input-position: $x_i W_Q W_K^T p_j^T$ (content attends to position)</li>
+<li>Position-input: $p_i W_Q W_K^T x_j^T$ (position attends to content)</li>
+<li>Position-position: $p_i W_Q W_K^T p_j^T$ (position-position interaction)</li>
+</ul>
+<p>T5's key insight was that the position-position and position-input terms could be deleted and $p_i W_Q W_K^T p_j^T$ is actually a function $B_{ij}$ which can be trained as a parameter:</p>
+<p>$q_i \cdot k_j^T = x_i W_Q W_K^T x_j^T + B_{ij}$</p>
+<p>Where $B_{ij} = f(i-j)$, a function assigning relative distances to "buckets." Each bucket has its own bias value, and all relative distances that fall into the same bucket share that value:</p>
+<p>Example of bucketing:</p>
+<ul>
+<li>$i-j = 0: f(0) = 0$ (Same token)</li>
+<li>$i-j = 1: f(1) = 1$ (Adjacent tokens)</li>
+<li>$i-j = 2: f(2) = 2$ (2 tokens apart)</li>
+<li>...</li>
+<li>$i-j = 8: f(8) = 8$ (8 tokens apart)</li>
+<li>$i-j = 9: f(9) = 8$ (Mapped to the same bucket as distance 8)</li>
+<li>$i-j = 10: f(10) = 8$ (Mapped to the same bucket as distance 8)</li>
+</ul>
+<p>This bucketing approach maps small distances (0-7) to individual buckets, while larger distances map to broader buckets, capturing the intuition that precise positioning matters more for nearby tokens.</p>
+<h3 id="1.3-XLNet-Style:-Relative-Position-Encoding">
+<a class="anchor" href="#1.3-XLNet-Style:-Relative-Position-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.3 XLNet-Style: Relative Position Encoding<a class="anchor-link" href="#1.3-XLNet-Style:-Relative-Position-Encoding"> </a>
+</h3>
+<p>XLNet introduced a more sophisticated approach to relative position encoding, starting with the expanded attention score:</p>
+<p>$q_i \cdot k_j^T = (x_i + p_i) W_Q \cdot W_K^T (x_j + p_j)^T$</p>
+<p>This expands to:
+$q_i \cdot k_j^T = x_i W_Q W_K^T x_j^T + x_i W_Q W_K^T p_j^T + p_i W_Q W_K^T x_j^T + p_i W_Q W_K^T p_j^T$</p>
+<p>XLNet replaces $p_j$ with a relative position encoding $\mathbf{R}_{ij}$ and modifies the computation:</p>
+<p>$q_i \cdot k_j^T = x_i W_Q W_K^T x_j^T + x_i W_Q W_K^T \mathbf{R}_{ij} + u W_K^T x_j^T + v W_K^T \mathbf{R}_{ij}$</p>
+<p>Where:</p>
+<ul>
+<li>$u$ and $v$ are trainable vectors that interact with content and position</li>
+<li>$\mathbf{R}_{ij}$ is a learnable relative position encoding</li>
+</ul>
+<p>This approach addresses the challenge that encoding spaces may not match—the input embeddings are in one space (typically $\mathbb{R}^d$), while relative position encoding $\mathbf{R}_{ij}$ is a vector that encodes distance. The projection matrices $W_K$ and $W_Q$ ensure these spaces are compatible for attention calculations.</p>
+<h3 id="1.4-The-Complex-Form-Approach">
+<a class="anchor" href="#1.4-The-Complex-Form-Approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.4 The Complex Form Approach<a class="anchor-link" href="#1.4-The-Complex-Form-Approach"> </a>
+</h3>
+<p>Taking a step back, we can view relative position encoding through the lens of complex numbers, which provides an elegant mathematical framework.</p>
+<p>For a vector $[x, y]$, we can treat this as a complex number $x + iy$. Using the natural representation of rotations in the complex plane, we can encode positional information by multiplying by a complex exponential:</p>
+<p>$(x + iy) \cdot e^{in\theta} = (x + iy) \cdot (\cos(n\theta) + i\sin(n\theta))$</p>
+<p>Where $n$ is the position and $\theta$ is a fixed angle (which could be position-dependent in more sophisticated schemes).</p>
+<p>This naturally leads us to Rotary Position Embedding (RoPE), which builds on this complex number intuition but formalizes it for high-dimensional transformer embeddings.</p>
+<h2 id="2.-Rotary-Position-Encoding:-The-Foundation">
+<a class="anchor" href="#2.-Rotary-Position-Encoding:-The-Foundation" aria-hidden="true"><span class="octicon octicon-link"></span></a>2. Rotary Position Encoding: The Foundation<a class="anchor-link" href="#2.-Rotary-Position-Encoding:-The-Foundation"> </a>
+</h2>
+<h3 id="2.1-The-Core-Idea">
+<a class="anchor" href="#2.1-The-Core-Idea" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.1 The Core Idea<a class="anchor-link" href="#2.1-The-Core-Idea"> </a>
+</h3>
+<p>The central insight of RoPE is elegantly simple: represent token positions as rotations in vector space. For a sequence of tokens $(q_0, q_1, ..., q_{d-2}, q_{d-1})$, we apply a rotation to each pair of dimensions with an angle that's proportional to the position index.</p>
+<p>Let's start with the rotation matrix $\mathbf{R}_m$ which is block-diagonal:</p>
+<p>
+$$\mathbf{R}_m = \text{diag}(\mathbf{R}_m^0, \mathbf{R}_m^1, ..., \mathbf{R}_m^{d/2-1})$$
+</p>
+<p>where each block $\mathbf{R}_m^i$ is a 2D rotation matrix:</p>
+<p>
+$$\mathbf{R}_m^i = \begin{pmatrix} \cos(m\theta_i) &amp; -\sin(m\theta_i) \\ \sin(m\theta_i) &amp; \cos(m\theta_i) \end{pmatrix}$$
+</p>
+<p>Here, $m$ indexes the position, and $\theta_i$ is a fixed angle for dimension $i$.</p>
+<h3 id="1.2-Applying-Rotations-to-Embeddings">
+<a class="anchor" href="#1.2-Applying-Rotations-to-Embeddings" aria-hidden="true"><span class="octicon octicon-link"></span></a>1.2 Applying Rotations to Embeddings<a class="anchor-link" href="#1.2-Applying-Rotations-to-Embeddings"> </a>
+</h3>
+<p>In the context of transformers, we apply these rotations to query and key vectors before computing attention:</p>
+<p>
+$$f(q, m) = \mathbf{R}_m q$$
+
+
+$$f(k, n) = \mathbf{R}_n k$$
+</p>
+<p>The dot product between transformed vectors then becomes:</p>
+<p>
+$$\langle f(q,m), f(k,n) \rangle = q^T \mathbf{R}_m^T \mathbf{R}_n k = q^T \mathbf{R}_{n-m} k$$
+</p>
+<p>This remarkable property shows that the attention score between positions $m$ and $n$ depends only on their relative distance $n-m$, not their absolute positions.</p>
+<h2 id="2.-The-Complex-Number-Approach">
+<a class="anchor" href="#2.-The-Complex-Number-Approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>2. The Complex Number Approach<a class="anchor-link" href="#2.-The-Complex-Number-Approach"> </a>
+</h2>
+<h3 id="2.1-Reframing-in-the-Complex-Domain">
+<a class="anchor" href="#2.1-Reframing-in-the-Complex-Domain" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.1 Reframing in the Complex Domain<a class="anchor-link" href="#2.1-Reframing-in-the-Complex-Domain"> </a>
+</h3>
+<p>We can express the rotation operations more elegantly using complex numbers. Let's assume $f(q,m)$ has an exponential form analogous to rotation in the complex plane:</p>
+<p>
+$$f(q,m) = qe^{im\theta}$$
+</p>
+<p>where $q$ is a complex vector and $e^{im\theta}$ rotates $q$ by an angle $m\theta$.</p>
+<h3 id="2.2-Verifying-the-Properties">
+<a class="anchor" href="#2.2-Verifying-the-Properties" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.2 Verifying the Properties<a class="anchor-link" href="#2.2-Verifying-the-Properties"> </a>
+</h3>
+<p>Let's verify that this form exhibits the desired behavior:</p>
+<p>For a query at position $m$: $f(q, m) = qe^{im\theta}$
+For a key at position $n$: $f(k, n) = ke^{in\theta}$</p>
+<p>Computing the inner product:
+
+$$\langle f(q,m), f^*(k,n) \rangle = (qe^{im\theta})(k^*e^{-in\theta}) = qk^*e^{i(m-n)\theta}$$
+</p>
+<p>Taking the real part:
+
+$$\text{Re}[qk^*e^{i(m-n)\theta}] = \text{Re}[qk^*]\cos((m-n)\theta) - \text{Im}[qk^*]\sin((m-n)\theta)$$
+</p>
+<p>This formula confirms that the dot product result depends on $q$, $k$, and their relative position $m-n$.</p>
+<h3 id="2.3-Expanding-the-Multiplication">
+<a class="anchor" href="#2.3-Expanding-the-Multiplication" aria-hidden="true"><span class="octicon octicon-link"></span></a>2.3 Expanding the Multiplication<a class="anchor-link" href="#2.3-Expanding-the-Multiplication"> </a>
+</h3>
+<p>To understand how this works with real-valued vectors, let's expand the complex multiplication:</p>
+<p>
+$$(x+iy)(\cos(n\theta) + i\sin(n\theta)) = x\cos(n\theta) - y\sin(n\theta) + i(x\sin(n\theta) + y\cos(n\theta))$$
+</p>
+<p>Grouping real and imaginary parts:</p>
+<ul>
+<li>Real part: $x\cos(n\theta) - y\sin(n\theta)$</li>
+<li>Imaginary part: $x\sin(n\theta) + y\cos(n\theta)$</li>
+</ul>
+<p>As a vector, this becomes:
+
+$$\begin{pmatrix} x\cos(n\theta) - y\sin(n\theta) \\ x\sin(n\theta) + y\cos(n\theta) \end{pmatrix}$$
+</p>
+<p>This is equivalent to applying the rotation matrix:
+
+$$\begin{pmatrix} \cos(n\theta) &amp; -\sin(n\theta) \\ \sin(n\theta) &amp; \cos(n\theta) \end{pmatrix} \begin{pmatrix} x \\ y \end{pmatrix}$$
+</p>
+<h2 id="3.-Complex-Form:-A-Deeper-Dive">
+<a class="anchor" href="#3.-Complex-Form:-A-Deeper-Dive" aria-hidden="true"><span class="octicon octicon-link"></span></a>3. Complex Form: A Deeper Dive<a class="anchor-link" href="#3.-Complex-Form:-A-Deeper-Dive"> </a>
+</h2>
+<h3 id="3.1-Multiple-Word-Vectors-and-Their-Representation">
+<a class="anchor" href="#3.1-Multiple-Word-Vectors-and-Their-Representation" aria-hidden="true"><span class="octicon octicon-link"></span></a>3.1 Multiple Word Vectors and Their Representation<a class="anchor-link" href="#3.1-Multiple-Word-Vectors-and-Their-Representation"> </a>
+</h3>
+<p>In transformer architectures, each word $j$ at position $k$ has three sets of vectors $(v_j, w_j, θ_j)$ that are independent of position:</p>
+<ul>
+<li>$v_{j,m}$: Magnitude for dimension $m$</li>
+<li>$w_{j,m}$: Frequency (how fast the phase changes with position)</li>
+<li>$θ_{j,m}$: Initial phase (starting angle)</li>
+</ul>
+<p>For each word $j$ at position $k$, its embedding is a vector of $d$ complex numbers, where each component is:</p>
+<p>$v_{j,m} \cdot e^{i(w_{j,m}k+θ_{j,m})}$</p>
+<p>Breaking down this formula:</p>
+<ul>
+<li>The term $e^{i(w_{j,m}k+θ_{j,m})}$ is a point on the unit circle in the complex plane with angle $w_{j,m}k+θ_{j,m}$</li>
+<li>Multiplying by $v_{j,m}$ scales this point to have radius $v_{j,m}$</li>
+<li>As $k$ (position) changes, the angle increases by $w_{j,m}$ times the position shift, like a rotating arrow</li>
+</ul>
+<p>Consider a word "cat" at position $k=1$ with dimension $m=1$. If $v_{j,1}=2, w_{j,1}=0.5, θ_{j,1}=0$, the component would be:</p>
+<p>$2e^{i(0.5 \cdot 1 + 0)} = 2e^{i0.5} = 2(\cos(0.5) + i\sin(0.5))$</p>
+<p>At $k=2$, it becomes $2e^{i1.0}$, rotating further. This form elegantly encodes where the word is positioned while preserving its content characteristics.</p>
+<h3 id="3.2-Understanding-the-Two-Dimensional-Vector-Representation">
+<a class="anchor" href="#3.2-Understanding-the-Two-Dimensional-Vector-Representation" aria-hidden="true"><span class="octicon octicon-link"></span></a>3.2 Understanding the Two-Dimensional Vector Representation<a class="anchor-link" href="#3.2-Understanding-the-Two-Dimensional-Vector-Representation"> </a>
+</h3>
+<p>To understand how these complex numbers are implemented in practice, we can view a 2D vector $[x,y]$ as the complex number $x+iy$.</p>
+<p><strong>Step 1:</strong> Understand the vector as a complex number
+<strong>Step 2:</strong> Multiply by a complex exponential</p>
+<p>$(x+iy)e^{inθ} = (x+iy)(\cos(nθ)+i\sin(nθ))$</p>
+<p>Expanding this multiplication:</p>
+<p>$(x+iy)(\cos(nθ)+i\sin(nθ)) = x\cos(nθ) + xi\sin(nθ) + iy\cos(nθ) + iy\cdot i\sin(nθ)$</p>
+<p>Since $i^2 = -1$, substitute:
+$yi^2\sin(nθ) = y(-1)\sin(nθ) = -y\sin(nθ)$</p>
+<p>Rewriting the expression:
+$x\cos(nθ) + xi\sin(nθ) + iy\cos(nθ) - y\sin(nθ)$</p>
+<p>Grouping real and imaginary parts:</p>
+<ul>
+<li>Real part: $x\cos(nθ) - y\sin(nθ)$</li>
+<li>Imaginary part: $x\sin(nθ) + y\cos(nθ)$</li>
+</ul>
+<p>As a vector, this becomes:
+$\begin{pmatrix} x\cos(nθ) - y\sin(nθ) \\ x\sin(nθ) + y\cos(nθ) \end{pmatrix}$</p>
+<p>This is equivalent to applying the rotation matrix:
+$\begin{pmatrix} \cos(nθ) &amp; -\sin(nθ) \\ \sin(nθ) &amp; \cos(nθ) \end{pmatrix} \begin{pmatrix} x \\ y \end{pmatrix}$</p>
+<p>We've now established a direct link between complex number multiplication and rotation matrices, which is the foundation for RoPE.</p>
+<h2 id="4.-Scaling-to-Higher-Dimensions">
+<a class="anchor" href="#4.-Scaling-to-Higher-Dimensions" aria-hidden="true"><span class="octicon octicon-link"></span></a>4. Scaling to Higher Dimensions<a class="anchor-link" href="#4.-Scaling-to-Higher-Dimensions"> </a>
+</h2>
+<h3 id="4.1-Extending-to-d-dimensional-Vectors">
+<a class="anchor" href="#4.1-Extending-to-d-dimensional-Vectors" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.1 Extending to d-dimensional Vectors<a class="anchor-link" href="#4.1-Extending-to-d-dimensional-Vectors"> </a>
+</h3>
+<p>For a $d$-dimensional vector $q = (q_0, q_1, ..., q_{d-2}, q_{d-1})$, we group coordinates into pairs and apply a rotation to each pair:</p>
+<ol>
+<li>Split the $d$-dimensional vector into $d/2$ pairs: $(q_0, q_1), (q_2, q_3), ..., (q_{d-2}, q_{d-1})$</li>
+<li>Apply rotation to each pair with potentially different angles $\theta_k$</li>
+</ol>
+<p>For example, with a 4D vector $[x_1, x_2, x_3, x_4]$:</p>
+<ul>
+<li>Pair 1: $(x_1, x_2)$ → Rotate by $n\theta_1$</li>
+<li>Pair 2: $(x_3, x_4)$ → Rotate by $n\theta_2$</li>
+</ul>
+<h3 id="3.2-Position-Encoding-Scheme">
+<a class="anchor" href="#3.2-Position-Encoding-Scheme" aria-hidden="true"><span class="octicon octicon-link"></span></a>3.2 Position Encoding Scheme<a class="anchor-link" href="#3.2-Position-Encoding-Scheme"> </a>
+</h3>
+<p>The transformation encodes position $n$ into the vector by making the rotation angle $n\theta$ depend directly on position $n$:</p>
+<ul>
+<li>
+<strong>Absolute position</strong>: Each position gets a unique transformation</li>
+<li>
+<strong>Relative position</strong>: In attention mechanisms, we compute dot products between vectors (query $q_m$ and key $k_n$). The dot product of two rotated vectors includes terms like $\cos((m-n)\theta)$, which depends on the relative position $(m-n)$.</li>
+</ul>
+<h2 id="5.-RoPE:-Relative-Position-Encoding">
+<a class="anchor" href="#5.-RoPE:-Relative-Position-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>5. RoPE: Relative Position Encoding<a class="anchor-link" href="#5.-RoPE:-Relative-Position-Encoding"> </a>
+</h2>
+<h3 id="5.1-Complex-Form:-A-Unified-Approach">
+<a class="anchor" href="#5.1-Complex-Form:-A-Unified-Approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.1 Complex Form: A Unified Approach<a class="anchor-link" href="#5.1-Complex-Form:-A-Unified-Approach"> </a>
+</h3>
+<p>Before diving into the specifics of RoPE, let's explore the complex form approach that combines complex numbers and positional encoding:</p>
+<p>The idea is to represent a word $j$ at position $k$ with a vector of complex numbers:</p>
+<p>$[v_{j,1}e^{i(w_{j,1}k+\theta_{j,1})}, v_{j,2}e^{i(w_{j,2}k+\theta_{j,2})}, ..., v_{j,d}e^{i(w_{j,d}k+\theta_{j,d})}]$</p>
+<p>Where:</p>
+<ul>
+<li>$j$ is the word in vocabulary</li>
+<li>$k$ is the position of the word in the sentence</li>
+<li>$d$ is the number of dimensions in the embedding</li>
+<li>$v_j, w_j, \theta_j$ are three vectors, each with $d$ components, unique to word $j$<ul>
+<li>$v_{j,m}$: Magnitude for dimension $m$</li>
+<li>$w_{j,m}$: Frequency (how fast the phase changes with position)</li>
+<li>$\theta_{j,m}$: Initial phase (starting angle)</li>
+</ul>
+</li>
+</ul>
+<p>For each word $j$ at position $k$, each component of its embedding is:</p>
+<p>$v_{j,m}e^{i(w_{j,m}k+\theta_{j,m})}$</p>
+<p>Breaking down this formula:</p>
+<ul>
+<li>The term $e^{i(w_{j,m}k+\theta_{j,m})}$ represents a point on the unit circle with angle $w_{j,m}k+\theta_{j,m}$</li>
+<li>As $k$ (position) changes, the angle increases by $w_{j,m}$ times the position shift</li>
+<li>The phase changes with position, encoding where the word is in a continuous and periodic way</li>
+<li>$v_{j,m}$ reflects the word's inherent strength or importance</li>
+</ul>
+<h3 id="5.2-Key-Idea-of-RoPE">
+<a class="anchor" href="#5.2-Key-Idea-of-RoPE" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.2 Key Idea of RoPE<a class="anchor-link" href="#5.2-Key-Idea-of-RoPE"> </a>
+</h3>
+<p>RoPE (Rotary Position Encoding) builds on these insights, modifying token embeddings by applying a function $f$ that embeds position:</p>
+<p>$\tilde{q}_m = f(q, m)$
+$\tilde{k}_n = f(k, n)$</p>
+<p>The dot product becomes:
+$\langle \tilde{q}_m, \tilde{k}_n \rangle = \langle f(q,m), f(k,n) \rangle = g(q, k, m-n)$</p>
+<p>Here, $g$ is some function of the original vectors $q$, $k$, and their relative distance $m-n$.</p>
+<h3 id="4.2-Long-Range-Attenuation">
+<a class="anchor" href="#4.2-Long-Range-Attenuation" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.2 Long-Range Attenuation<a class="anchor-link" href="#4.2-Long-Range-Attenuation"> </a>
+</h3>
+<p>RoPE implements a natural decay of influence with distance:</p>
+<p>As $|m-n|$ grows, terms oscillate with frequencies $\theta_i$, with $\theta_i = 10000^{-2i/d}$ for dimension $i$. Higher $i$ means faster oscillation, reducing sums via cancellation. This decay aligns with the linguistic intuition that distant tokens matter less.</p>
+<h3 id="4.3-Implementation-in-Attention">
+<a class="anchor" href="#4.3-Implementation-in-Attention" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.3 Implementation in Attention<a class="anchor-link" href="#4.3-Implementation-in-Attention"> </a>
+</h3>
+<p>Linear attention approximates softmax attention for efficiency:</p>
+<p>
+$$\text{Attention}(q_i, k_j, v_j) = \frac{\sum_j \phi(q_i)^T \phi(k_j) v_j}{\sum_j \phi(q_i)^T \phi(k_j)}$$
+</p>
+<p>RoPE applies $\mathbf{R}_m$ to $q$ and $k$ before $\phi$, preserving relative position properties in the numerator:</p>
+<p>
+$$\text{Attention}(q_i, k_j, v_j) = \frac{\sum_j \phi(\mathbf{R}_m q_i)^T \phi(\mathbf{R}_n k_j) v_j}{\sum_j \phi(\mathbf{R}_m q_i)^T \phi(\mathbf{R}_n k_j)}$$
+</p>
+<h2 id="5.-Advantages-of-Relative-Position-Encoding">
+<a class="anchor" href="#5.-Advantages-of-Relative-Position-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>5. Advantages of Relative Position Encoding<a class="anchor-link" href="#5.-Advantages-of-Relative-Position-Encoding"> </a>
+</h2>
+<h3 id="5.1-Why-Relative-Position-Works-Better">
+<a class="anchor" href="#5.1-Why-Relative-Position-Works-Better" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.1 Why Relative Position Works Better<a class="anchor-link" href="#5.1-Why-Relative-Position-Works-Better"> </a>
+</h3>
+<p>Relative position encoding offers several compelling advantages:</p>
+<ol>
+<li>
+<p><strong>Invariance to Absolute Positions</strong>: For tokens at positions $(i,j)$ and $(i+k, j+k)$, the relative distance $(i-j)$ remains unchanged, ensuring the model generalizes across positions.</p>
+</li>
+<li>
+<p><strong>Efficiency</strong>: By clipping distances (e.g., $\pm 2$), we avoid $O(n^2)$ parameters for sequence length $n$.</p>
+</li>
+<li>
+<p><strong>Linguistic Relevance</strong>: Syntactic dependencies (e.g., subject-verb) often depend on proximity. For "cat sat" at positions $(2,3)$ or $(3,4)$, the relative distance $i-j = -1$ ensures consistent attention weighting.</p>
+</li>
+</ol>
+<p>Example: When encoding "The cat sat quietly", the attention score between "cat" and "sat" uses the same relative distance encoding regardless of where they appear in the sentence, allowing the model to learn consistent syntactic relationships.</p>
+<h3 id="5.2-Mathematical-Proof">
+<a class="anchor" href="#5.2-Mathematical-Proof" aria-hidden="true"><span class="octicon octicon-link"></span></a>5.2 Mathematical Proof<a class="anchor-link" href="#5.2-Mathematical-Proof"> </a>
+</h3>
+<p><strong>Claim</strong>: Relative position encoding captures dependencies based on token proximity, independent of absolute positions.</p>
+<p><strong>Proof</strong>:</p>
+<ol>
+<li>
+<p><strong>Invariance to Shifts</strong>: For tokens at positions $(i,j)$ and $(i+k, j+k)$, the relative distance $(i-j)$ remains unchanged. Their attention score $a_{ij}$ is identical, ensuring the model generalizes across positions.</p>
+</li>
+<li>
+<p><strong>Efficiency</strong>: By clipping distances to a fixed range (e.g., $-2$ to $+2$), we need only a constant number of embeddings regardless of sequence length.</p>
+</li>
+<li>
+<p><strong>Linguistic Justification</strong>: For "cat sat" at positions $(2,3)$ with $i-j = -1$, the encoding $\mathbf{R}_{3-4} = \mathbf{R}_{-1}$ emphasizes adjacency regardless of absolute positions.</p>
+</li>
+</ol>
+<h2 id="6.-Technical-Implementation">
+<a class="anchor" href="#6.-Technical-Implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>6. Technical Implementation<a class="anchor-link" href="#6.-Technical-Implementation"> </a>
+</h2>
+<h3 id="6.1-Future-improvements">
+<a class="anchor" href="#6.1-Future-improvements" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.1 Future improvements<a class="anchor-link" href="#6.1-Future-improvements"> </a>
+</h3>
+<p>Another useful observation relates to how relative position information is used in the model:</p>
+<p>→ The model uses relative position information to decide which positions to pay attention to (via $v_j$), but when it retrieves the information from those positions, it only uses the content itself, not positional data.</p>
+<p>This led to T5's simplification approach: decoupling content and position. In the full attention calculation, the attention score can be expanded as:</p>
+<p>$q_i \cdot k_j^T = x_i W_Q W_K^T x_j^T + x_i W_Q W_K^T p_j^T + p_i W_Q W_K^T x_j^T + p_i W_Q W_K^T p_j^T$</p>
+<p>T5 noted that these can be interpreted as:</p>
+<p>1) Content-Content Term: $(x_i W_Q W_K^T x_j^T)$</p>
+<ul>
+<li>Measures how much the content of token $i$ (e.g., cat) attends to the content of token $j$</li>
+</ul>
+<p>2) Content-Position Term: $(x_i W_Q W_K^T p_j^T)$</p>
+<ul>
+<li>Measures how much the content of token $i$ attends to the absolute positions of token $j$</li>
+</ul>
+<p>3) Position-Content Term: $(p_i W_Q W_K^T x_j^T)$</p>
+<ul>
+<li>Measures how much the absolute position of token $i$ attends to the content of token $j$</li>
+</ul>
+<p>4) Position-Position Term: $(p_i W_Q W_K^T p_j^T)$</p>
+<ul>
+<li>Measures interaction between the absolute positions of $i$ &amp; $j$</li>
+</ul>
+<p>The idea: decouple content from position → there should not be interaction between "input-position" &amp; "position-input" terms. The position-position term $(p_i W_Q W_K^T p_j^T)$ is actually $(i,j)$ which can be trained as a parameter.</p>
+<h3 id="6.2-Standard-Self-Attention-with-Absolute-Position-Encoding">
+<a class="anchor" href="#6.2-Standard-Self-Attention-with-Absolute-Position-Encoding" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.2 Standard Self-Attention with Absolute Position Encoding<a class="anchor-link" href="#6.2-Standard-Self-Attention-with-Absolute-Position-Encoding"> </a>
+</h3>
+<p>In standard transformer models with absolute position encoding:</p>
+<p>$q_i = (x_i + p_i)W_Q$
+$k_j = (x_j + p_j)W_K$
+$v_j = (x_j + p_j)W_V$
+$a_{ij} = \text{softmax}\left(\frac{q_i \cdot k_j^T}{\sqrt{d}}\right)$
+$o_i = \sum_j a_{ij}v_j$</p>
+<p>Expanding the attention score:</p>
+<p>$q_i \cdot k_j^T = (x_i + p_i)W_Q W_K^T(x_j + p_j)^T = x_i W_Q W_K^T x_j^T + x_i W_Q W_K^T p_j^T + p_i W_Q W_K^T x_j^T + p_i W_Q W_K^T p_j^T$</p>
+<p>This expands into four terms:</p>
+<ol>
+<li>Content-content interaction</li>
+<li>Content-position interaction</li>
+<li>Position-content interaction</li>
+<li>Position-position interaction</li>
+</ol>
+<h3 id="6.2-RoPE's-Modification">
+<a class="anchor" href="#6.2-RoPE's-Modification" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.2 RoPE's Modification<a class="anchor-link" href="#6.2-RoPE's-Modification"> </a>
+</h3>
+<p>RoPE replaces absolute position terms with learnable relative position vectors:</p>
+<ol>
+<li>Remove position bias from queries: $q_i = x_i W_Q$</li>
+<li>Replace absolute positions with relative position vector $\mathbf{R}_{ij}^K$: $k_j = x_j W_K + \mathbf{R}_{ij}^K$</li>
+<li>Modify the attention score:
+$$a_{ij} = \text{softmax}\left(\frac{x_i W_Q (x_j W_K + \mathbf{R}_{ij}^K)^T}{\sqrt{d}}\right)$$</li>
+</ol>
+<h3 id="6.3-Defining-Relative-Position-Vectors">
+<a class="anchor" href="#6.3-Defining-Relative-Position-Vectors" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.3 Defining Relative Position Vectors<a class="anchor-link" href="#6.3-Defining-Relative-Position-Vectors"> </a>
+</h3>
+<p>The relative position vectors depend on $i-j$, clipped to a fixed range $[p_{min}, p_{max}]$:</p>
+<p>
+$$\mathbf{R}_{ij}^K = P_K[\text{clip}(i-j, p_{min}, p_{max})]$$
+
+
+$$\mathbf{R}_{ij}^V = P_V[\text{clip}(i-j, p_{min}, p_{max})]$$
+</p>
+<p>Where $P_K$ and $P_V$ are learnable embeddings for each clipped distance.</p>
+<p>Example: If $p_{min} = -2$ and $p_{max} = 2$, distance beyond $\pm 2$ are clipped:</p>
+<ul>
+<li>For $i-j = 5$, $\text{clip}(5, -2, 2) = 2$</li>
+<li>Only 5 embeddings are needed: -2, -1, 0, 1, 2</li>
+</ul>
+<h3 id="6.4-Why-Projection-Matrices-are-Needed">
+<a class="anchor" href="#6.4-Why-Projection-Matrices-are-Needed" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.4 Why Projection Matrices are Needed<a class="anchor-link" href="#6.4-Why-Projection-Matrices-are-Needed"> </a>
+</h3>
+<p>An interesting question arises: Why is $\mathbf{R}_{ij}$ preceded by $W_k^T$ and $W_h^T$?</p>
+<p>The key vector for position $j$ is computed as $k_j = x_j W_K$, where $W_K$ is a matrix that projects $x_j$ into key space (e.g., R^{64}).</p>
+<p>For relative position encoding $\mathbf{R}_{ij}$, we need to bring it to a compatible space so it could interact with query &amp; key vectors in the attention score.</p>
+<ul>
+<li>$W_K^T$ → transpose of the key projection matrix used by $x_j$</li>
+<li>Key point: $\mathbf{R}_{ij}$ gets its own dedicated projection matrix, $W_{K,R}$</li>
+<li>$W_{K,R}$ is a separate matrix designed to transform $\mathbf{R}_{ij}$ into the key space, ensuring it aligns with dimensions and structure needed for attention calculation</li>
+</ul>
+<p>Similarly with query-side projections:</p>
+<ul>
+<li>$u$ and $v$ are used as standalone vectors without needing additional transformations by $W_Q$</li>
+<li>In the attention score, $u$ interacts with $x_j W_K$ and $v$ interacts with projected $\mathbf{R}_{ij} W_{K,R}$</li>
+</ul>
+<p>The full attention calculation with these projections becomes:
+$x_i W_Q W_K^T x_j^T + x_i W_Q W_{K,R}^T \mathbf{R}_{ij} + u W_K^T x_j^T + v W_{K,R}^T \mathbf{R}_{ij}$</p>
+<h2 id="Conclusion">
+<a class="anchor" href="#Conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclusion<a class="anchor-link" href="#Conclusion"> </a>
+</h2>
+<p>We've taken a comprehensive journey through the evolution of position encoding in transformer models, from absolute position encodings in the original transformer, through T5's simplifications and XLNet's innovations, to the elegant mathematics of RoPE.</p>
+<p>The key insights we've covered:</p>
+<ol>
+<li>
+<strong>The Problem</strong>: The inherent permutation invariance of attention mechanisms necessitates explicit position information</li>
+<li>
+<strong>Early Solutions</strong>: Absolute position encodings added to token embeddings worked but had limitations</li>
+<li>
+<strong>T5's Contribution</strong>: Decoupling content and position by simplifying the attention mechanism</li>
+<li>
+<strong>XLNet's Approach</strong>: Combining content and relative position information with dedicated parameter vectors</li>
+<li>
+<strong>Complex Numbers</strong>: Providing an elegant mathematical framework for understanding rotations</li>
+<li>
+<strong>RoPE's Innovation</strong>: Encoding positions as rotations in vector space that naturally preserve relative distances</li>
+<li>
+<strong>Practical Advantages</strong>: Relative position methods generalize better, require fewer parameters, and align with linguistic intuition</li>
+</ol>
+<p>The mathematical elegance of position encoding methods, particularly RoPE, demonstrates how first principles can lead to powerful practical techniques. By embracing the underlying geometry of the problem, we gain a position encoding method that not only works well in practice but also has theoretical properties that justify its success.</p>
+<p>The advantages of relative position encoding are clear:</p>
+<ul>
+<li>
+<strong>Generalization</strong>: Handles variable sentence lengths and structures</li>
+<li>
+<strong>Efficiency</strong>: Fewer parameters than absolute encoding</li>
+<li>
+<strong>Linguistic Relevance</strong>: Prioritizes local dependencies that are critical for syntax</li>
+</ul>
+<p>As transformer architectures continue to evolve, understanding the mathematical foundations of components like position encoding becomes increasingly important for developing more efficient and effective models. The journey from absolute to relative position encodings illustrates how theoretical insights can lead to practical improvements in model performance and capabilities.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="References:">
+<a class="anchor" href="#References:" aria-hidden="true"><span class="octicon octicon-link"></span></a>References:<a class="anchor-link" href="#References:"> </a>
+</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2104.09864">https://arxiv.org/abs/2104.09864</a></li>
+<li><a href="https://kexue.fm/archives/8265">https://kexue.fm/archives/8265</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/llm/transformers/math/deeplearning/2025/03/01/transformers-positional-encoding-evolution.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
