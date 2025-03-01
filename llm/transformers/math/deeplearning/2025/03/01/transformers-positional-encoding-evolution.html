@@ -196,7 +196,7 @@ window.onload = wrap_img;
 </li>
 <li class="toc-entry toc-h2"><a href="#6.-Technical-Implementation">6. Technical Implementation </a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#6.1-Future-improvements">6.1 Future improvements </a></li>
+<li class="toc-entry toc-h3"><a href="#6.1-Some-observations">6.1 Some observations </a></li>
 <li class="toc-entry toc-h3"><a href="#6.2-Standard-Self-Attention-with-Absolute-Position-Encoding">6.2 Standard Self-Attention with Absolute Position Encoding </a></li>
 <li class="toc-entry toc-h3"><a href="#6.2-RoPE's-Modification">6.2 RoPE&#39;s Modification </a></li>
 <li class="toc-entry toc-h3"><a href="#6.3-Defining-Relative-Position-Vectors">6.3 Defining Relative Position Vectors </a></li>
@@ -527,8 +527,8 @@ $$\text{Attention}(q_i, k_j, v_j) = \frac{\sum_j \phi(\mathbf{R}_m q_i)^T \phi(\
 <h2 id="6.-Technical-Implementation">
 <a class="anchor" href="#6.-Technical-Implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>6. Technical Implementation<a class="anchor-link" href="#6.-Technical-Implementation"> </a>
 </h2>
-<h3 id="6.1-Future-improvements">
-<a class="anchor" href="#6.1-Future-improvements" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.1 Future improvements<a class="anchor-link" href="#6.1-Future-improvements"> </a>
+<h3 id="6.1-Some-observations">
+<a class="anchor" href="#6.1-Some-observations" aria-hidden="true"><span class="octicon octicon-link"></span></a>6.1 Some observations<a class="anchor-link" href="#6.1-Some-observations"> </a>
 </h3>
 <p>Another useful observation relates to how relative position information is used in the model:</p>
 <p>→ The model uses relative position information to decide which positions to pay attention to (via $v_j$), but when it retrieves the information from those positions, it only uses the content itself, not positional data.</p>
