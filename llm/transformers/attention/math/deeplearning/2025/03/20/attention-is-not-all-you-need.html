@@ -4,21 +4,21 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
-<title>Tight-fisted Optimizer ( Tiger ) | experiments</title>
+<title>Attention Paths and Rank Collapse Part 1 | experiments</title>
 <meta name="generator" content="Jekyll v4.0.0" />
-<meta property="og:title" content="Tight-fisted Optimizer ( Tiger )" />
+<meta property="og:title" content="Attention Paths and Rank Collapse Part 1" />
 <meta name="author" content="Abhishek Sharma" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="How to implement an optimzer in fast.ai example tiger" />
-<meta property="og:description" content="How to implement an optimzer in fast.ai example tiger" />
-<link rel="canonical" href="https://numb3r33.github.io/experiments/optimization/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html" />
-<meta property="og:url" content="https://numb3r33.github.io/experiments/optimization/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html" />
+<meta name="description" content="This is the first part of a multi-part series diving into the theoretical underpinnings of transformer models. In this installment, we’ll explore the concepts of attention paths and rank collapse, two fundamental ideas that help explain how transformers actually work under the hood." />
+<meta property="og:description" content="This is the first part of a multi-part series diving into the theoretical underpinnings of transformer models. In this installment, we’ll explore the concepts of attention paths and rank collapse, two fundamental ideas that help explain how transformers actually work under the hood." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/llm/transformers/attention/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/llm/transformers/attention/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html" />
 <meta property="og:site_name" content="experiments" />
-<meta property="og:image" content="https://numb3r33.github.io/experiments/images/lr_and_opt.webp" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/attn_1.png" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2025-03-20T00:00:00-05:00" />
 <script type="application/ld+json">
-{"headline":"Tight-fisted Optimizer ( Tiger )","url":"https://numb3r33.github.io/experiments/optimization/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html","dateModified":"2025-03-20T00:00:00-05:00","datePublished":"2025-03-20T00:00:00-05:00","image":"https://numb3r33.github.io/experiments/images/lr_and_opt.webp","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/optimization/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"How to implement an optimzer in fast.ai example tiger","@context":"https://schema.org"}</script>
+{"headline":"Attention Paths and Rank Collapse Part 1","url":"https://numb3r33.github.io/experiments/llm/transformers/attention/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html","dateModified":"2025-03-20T00:00:00-05:00","datePublished":"2025-03-20T00:00:00-05:00","image":"https://numb3r33.github.io/experiments/images/attn_1.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/llm/transformers/attention/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"This is the first part of a multi-part series diving into the theoretical underpinnings of transformer models. In this installment, we’ll explore the concepts of attention paths and rank collapse, two fundamental ideas that help explain how transformers actually work under the hood.","@context":"https://schema.org"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
@@ -89,7 +89,7 @@ window.onload = wrap_img;
         <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
 
   <header class="post-header">
-    <h1 class="post-title p-name" itemprop="name headline">Tight-fisted Optimizer ( Tiger )</h1><p class="page-description">How to implement an optimzer in fast.ai example <a href='https://github.com/bojone/tiger/tree/main'>tiger</a></p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-03-20T00:00:00-05:00" itemprop="datePublished">
+    <h1 class="post-title p-name" itemprop="name headline">Attention Paths and Rank Collapse Part 1</h1><p class="page-description">This is the first part of a multi-part series diving into the theoretical underpinnings of transformer models. In this installment, we'll explore the concepts of attention paths and rank collapse, two fundamental ideas that help explain how transformers actually work under the hood.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-03-20T00:00:00-05:00" itemprop="datePublished">
         Mar 20, 2025
       </time>• 
           <span itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -104,7 +104,13 @@ window.onload = wrap_img;
     
       <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
       
-        <a class="category-tags-link" href="/experiments/categories/#optimization">optimization</a>
+        <a class="category-tags-link" href="/experiments/categories/#llm">llm</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#transformers">transformers</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#attention">attention</a>
         &nbsp;
       
         <a class="category-tags-link" href="/experiments/categories/#math">math</a>
@@ -143,8 +149,6 @@ window.onload = wrap_img;
 
   <div class="post-content e-content" itemprop="articleBody">
     <ul class="section-nav">
-<li class="toc-entry toc-h1"><a href="#Understanding-Transformer-Theory:-Attention-Paths-and-Rank-Collapse-Part-1">Understanding Transformer Theory: Attention Paths and Rank Collapse Part 1 </a>
-<ul>
 <li class="toc-entry toc-h2"><a href="#Introduction">Introduction </a></li>
 <li class="toc-entry toc-h2"><a href="#The-Mathematical-Foundation-of-Self-Attention">The Mathematical Foundation of Self-Attention </a>
 <ul>
@@ -181,8 +185,6 @@ window.onload = wrap_img;
 </li>
 <li class="toc-entry toc-h2"><a href="#Coming-Up-in-Part-2">Coming Up in Part 2 </a></li>
 <li class="toc-entry toc-h2"><a href="#References:">References: </a></li>
-</ul>
-</li>
 </ul><!--
 #################################################
 ### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
@@ -192,27 +194,6 @@ window.onload = wrap_img;
 
 <div class="container" id="notebook-container">
         
-<div class="cell border-box-sizing text_cell rendered">
-<div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Understanding-Transformer-Theory:-Attention-Paths-and-Rank-Collapse-Part-1">
-<a class="anchor" href="#Understanding-Transformer-Theory:-Attention-Paths-and-Rank-Collapse-Part-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>Understanding Transformer Theory: Attention Paths and Rank Collapse Part 1<a class="anchor-link" href="#Understanding-Transformer-Theory:-Attention-Paths-and-Rank-Collapse-Part-1"> </a>
-</h1>
-<blockquote>
-<p>Explore concepts of attention paths and rank collapse, two fundamental ideas that help explain how transformers actually work under the hood.</p>
-</blockquote>
-<ul>
-<li>toc:true- badges: true</li>
-<li>comments: true</li>
-<li>sticky_rank: 1</li>
-<li>author: Abhishek Sharma</li>
-<li>image: images/attn_1.png</li>
-<li>categories: [llm, transformers, attention, math, deeplearning]</li>
-</ul>
-
-</div>
-</div>
-</div>
 <div class="cell border-box-sizing text_cell rendered">
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
@@ -442,7 +423,7 @@ $\text{MLP}(x) = W_2 \cdot \text{ReLU}(W_1 x + b_1) + b_2$</p>
         theme="github-light"
         crossorigin="anonymous"
         async>
-</script><a class="u-url" href="/experiments/optimization/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html" hidden></a>
+</script><a class="u-url" href="/experiments/llm/transformers/attention/math/deeplearning/2025/03/20/attention-is-not-all-you-need.html" hidden></a>
 </article>
 
       </div>
