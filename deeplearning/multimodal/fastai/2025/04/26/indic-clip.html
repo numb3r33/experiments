@@ -4,19 +4,21 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
-<title>Title | experiments</title>
+<title>Indic CLIP Multimodal Understanding for Indic Languages | experiments</title>
 <meta name="generator" content="Jekyll v4.0.0" />
-<meta property="og:title" content="Title" />
+<meta property="og:title" content="Indic CLIP Multimodal Understanding for Indic Languages" />
+<meta name="author" content="Abhishek Sharma" />
 <meta property="og:locale" content="en_US" />
-<meta name="description" content="Notes on all experiments and learnings." />
-<meta property="og:description" content="Notes on all experiments and learnings." />
-<link rel="canonical" href="https://numb3r33.github.io/experiments/2025/04/26/indic-clip.html" />
-<meta property="og:url" content="https://numb3r33.github.io/experiments/2025/04/26/indic-clip.html" />
+<meta name="description" content="Indic languages, despite their cultural richness and widespread usage, have long been underserved in the field of multimodal AI. Inspired by the success of OpenAI’s CLIP (Contrastive Language-Image Pre-training), I aimed to adapt this powerful architecture to bridge the multimodal understanding gap specifically for Hindi, with an outlook towards Sanskrit. This project demonstrates how vision-language models can effectively associate images with relevant textual descriptions, opening pathways for applications such as cross-modal search and zero-shot image classification tailored to the Indian cultural context." />
+<meta property="og:description" content="Indic languages, despite their cultural richness and widespread usage, have long been underserved in the field of multimodal AI. Inspired by the success of OpenAI’s CLIP (Contrastive Language-Image Pre-training), I aimed to adapt this powerful architecture to bridge the multimodal understanding gap specifically for Hindi, with an outlook towards Sanskrit. This project demonstrates how vision-language models can effectively associate images with relevant textual descriptions, opening pathways for applications such as cross-modal search and zero-shot image classification tailored to the Indian cultural context." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/multimodal/fastai/2025/04/26/indic-clip.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/multimodal/fastai/2025/04/26/indic-clip.html" />
 <meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/indic_clip.png" />
 <meta property="og:type" content="article" />
 <meta property="article:published_time" content="2025-04-26T00:00:00-05:00" />
 <script type="application/ld+json">
-{"headline":"Title","url":"https://numb3r33.github.io/experiments/2025/04/26/indic-clip.html","dateModified":"2025-04-26T00:00:00-05:00","datePublished":"2025-04-26T00:00:00-05:00","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/2025/04/26/indic-clip.html"},"description":"Notes on all experiments and learnings.","@context":"https://schema.org"}</script>
+{"headline":"Indic CLIP Multimodal Understanding for Indic Languages","url":"https://numb3r33.github.io/experiments/deeplearning/multimodal/fastai/2025/04/26/indic-clip.html","dateModified":"2025-04-26T00:00:00-05:00","datePublished":"2025-04-26T00:00:00-05:00","image":"https://numb3r33.github.io/experiments/images/indic_clip.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/multimodal/fastai/2025/04/26/indic-clip.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"Indic languages, despite their cultural richness and widespread usage, have long been underserved in the field of multimodal AI. Inspired by the success of OpenAI’s CLIP (Contrastive Language-Image Pre-training), I aimed to adapt this powerful architecture to bridge the multimodal understanding gap specifically for Hindi, with an outlook towards Sanskrit. This project demonstrates how vision-language models can effectively associate images with relevant textual descriptions, opening pathways for applications such as cross-modal search and zero-shot image classification tailored to the Indian cultural context.","@context":"https://schema.org"}</script>
 <!-- End Jekyll SEO tag -->
 <link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
@@ -87,16 +89,31 @@ window.onload = wrap_img;
         <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
 
   <header class="post-header">
-    <h1 class="post-title p-name" itemprop="name headline">Title</h1><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-04-26T00:00:00-05:00" itemprop="datePublished">
+    <h1 class="post-title p-name" itemprop="name headline">Indic CLIP Multimodal Understanding for Indic Languages</h1><p class="page-description">Indic languages, despite their cultural richness and widespread usage, have long been underserved in the field of multimodal AI. Inspired by the success of OpenAI’s CLIP (Contrastive Language-Image Pre-training), I aimed to adapt this powerful architecture to bridge the multimodal understanding gap specifically for Hindi, with an outlook towards Sanskrit. This project demonstrates how vision-language models can effectively associate images with relevant textual descriptions, opening pathways for applications such as cross-modal search and zero-shot image classification tailored to the Indian cultural context.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-04-26T00:00:00-05:00" itemprop="datePublished">
         Apr 26, 2025
-      </time>
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
        • <span class="read-time" title="Estimated read time">
     
     
-      4 min read
+      3 min read
     
 </span></p>
 
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#multimodal">multimodal</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#fastai">fastai</a>
+        
+      
+      </p>
     
 
     
@@ -125,7 +142,15 @@ window.onload = wrap_img;
       </header>
 
   <div class="post-content e-content" itemprop="articleBody">
-    <!--
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Dataset-Acquisition-and-Preprocessing">Dataset Acquisition and Preprocessing </a></li>
+<li class="toc-entry toc-h2"><a href="#Model-Architecture">Model Architecture </a></li>
+<li class="toc-entry toc-h2"><a href="#Training-Approach">Training Approach </a></li>
+<li class="toc-entry toc-h2"><a href="#Evaluation-Methods">Evaluation Methods </a></li>
+<li class="toc-entry toc-h2"><a href="#Results-and-Demonstration">Results and Demonstration </a></li>
+<li class="toc-entry toc-h2"><a href="#Future-Directions-and-Limitations">Future Directions and Limitations </a></li>
+<li class="toc-entry toc-h2"><a href="#References">References </a></li>
+</ul><!--
 #################################################
 ### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
 #################################################
@@ -134,36 +159,25 @@ window.onload = wrap_img;
 
 <div class="container" id="notebook-container">
         
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h1 id="Indic-CLIP:-Multimodal-Understanding-for-Indic-Languages">Indic-CLIP: Multimodal Understanding for Indic Languages<a class="anchor-link" href="#Indic-CLIP:-Multimodal-Understanding-for-Indic-Languages"> </a></h1><blockquote><p>Indic languages, despite their cultural richness and widespread usage, have long been underserved in the field of multimodal AI. Inspired by the success of OpenAI’s CLIP (Contrastive Language-Image Pre-training), I aimed to adapt this powerful architecture to bridge the multimodal understanding gap specifically for Hindi, with an outlook towards Sanskrit. This project demonstrates how vision-language models can effectively associate images with relevant textual descriptions, opening pathways for applications such as cross-modal search and zero-shot image classification tailored to the Indian cultural context.</p>
-</blockquote>
-<ul>
-<li>toc:true- badges: true</li>
-<li>comments: true</li>
-<li>sticky_rank: 1</li>
-<li>author: Abhishek Sharma</li>
-<li>image: images/indic_clip.png</li>
-<li>categories: [deeplearning, multimodal, fastai]</li>
-</ul>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>The core objective was straightforward yet ambitious: develop a foundational vision-language model leveraging the fast.ai framework. I utilized the Flickr8k-Hindi dataset, which contains approximately 8,000 images each paired with multiple Hindi captions, as my primary data source due to its accessibility and structure.</p>
 
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Dataset-Acquisition-and-Preprocessing">Dataset Acquisition and Preprocessing<a class="anchor-link" href="#Dataset-Acquisition-and-Preprocessing"> </a></h2>
+<h2 id="Dataset-Acquisition-and-Preprocessing">
+<a class="anchor" href="#Dataset-Acquisition-and-Preprocessing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dataset Acquisition and Preprocessing<a class="anchor-link" href="#Dataset-Acquisition-and-Preprocessing"> </a>
+</h2>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>I set up scripts to efficiently download and preprocess the Flickr8k-Hindi dataset from Kaggle (images: <a href="https://www.kaggle.com/datasets/adityajn105/flickr8k">adityajn105/flickr8k</a>, captions: <a href="https://www.kaggle.com/datasets/dsmeena/flickr8k-hindi-captions/data">dsmeena/flickr8k-hindi-captions</a>). The preprocessing pipeline included:</p>
 <ul>
@@ -179,13 +193,17 @@ window.onload = wrap_img;
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Model-Architecture">Model Architecture<a class="anchor-link" href="#Model-Architecture"> </a></h2>
+<h2 id="Model-Architecture">
+<a class="anchor" href="#Model-Architecture" aria-hidden="true"><span class="octicon octicon-link"></span></a>Model Architecture<a class="anchor-link" href="#Model-Architecture"> </a>
+</h2>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>The Indic-CLIP model was constructed using fast.ai, integrating components from timm and transformers. Key architectural elements included:</p>
 <p>Vision Encoder: Leveraged a pre-trained ResNet50 model (timm) initialized with ImageNet weights to extract visual features.</p>
@@ -196,13 +214,17 @@ window.onload = wrap_img;
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Training-Approach">Training Approach<a class="anchor-link" href="#Training-Approach"> </a></h2>
+<h2 id="Training-Approach">
+<a class="anchor" href="#Training-Approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>Training Approach<a class="anchor-link" href="#Training-Approach"> </a>
+</h2>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>Training was performed with the symmetric InfoNCE contrastive loss to encourage matching pairs while differentiating non-matching pairs within each batch. The process included:</p>
 <p>Orchestrating training loops through fast.ai’s Learner API.</p>
@@ -213,51 +235,61 @@ window.onload = wrap_img;
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Evaluation-Methods">Evaluation Methods<a class="anchor-link" href="#Evaluation-Methods"> </a></h2>
+<h2 id="Evaluation-Methods">
+<a class="anchor" href="#Evaluation-Methods" aria-hidden="true"><span class="octicon octicon-link"></span></a>Evaluation Methods<a class="anchor-link" href="#Evaluation-Methods"> </a>
+</h2>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Pix2Pix-Architecture">Pix2Pix Architecture<a class="anchor-link" href="#Pix2Pix-Architecture"> </a></h2>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<p>Pix2Pix is a conditional GAN architecture designed for image-to-image translation tasks. It consists of two main components: a U-Net generator that actually produces the maze solutions, and a PatchGAN discriminator that learns to distinguish between real and fake solutions. The generator takes an unsolved maze as input and attempts to produce its solution, while the discriminator evaluates how realistic these solutions appear compared to the ground truth.</p>
-
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
-<div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Training-Procedure">Training Procedure<a class="anchor-link" href="#Training-Procedure"> </a></h3>
-</div>
-</div>
-</div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>Model evaluation focused on two core tasks:</p>
+<ul>
+<li>
 <p>Cross-Modal Retrieval: Measuring performance via Recall@k (R@1, R@5, R@10) and Mean Recall (MR), assessing how accurately the model retrieves the correct text given an image (I2T) and vice versa (T2I).</p>
+</li>
+<li>
 <p>Zero-Shot Classification: Evaluating the model’s ability to classify unseen categories using generated textual prompts and measuring performance via Top-1 accuracy.</p>
+</li>
+</ul>
 
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Results-and-Demonstration">Results and Demonstration<a class="anchor-link" href="#Results-and-Demonstration"> </a></h2>
+<h2 id="Results-and-Demonstration">
+<a class="anchor" href="#Results-and-Demonstration" aria-hidden="true"><span class="octicon octicon-link"></span></a>Results and Demonstration<a class="anchor-link" href="#Results-and-Demonstration"> </a>
+</h2>
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
 <p>The Indic-CLIP model successfully demonstrated effective multimodal understanding on the Flickr8k-Hindi dataset. To showcase its capabilities, I developed an interactive application using Gradio, hosted on Hugging Face Spaces. Users can now explore functionalities such as image-to-text retrieval, text-to-image retrieval, and zero-shot classification interactively.</p>
-<p>Demo available here: [Link to Hugging Face Space]</p>
-<p>Future Directions and Limitations</p>
+<p><a href="https://huggingface.co/spaces/numb3r33/indic-clip">Demo</a> available here:</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Future-Directions-and-Limitations">
+<a class="anchor" href="#Future-Directions-and-Limitations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Future Directions and Limitations<a class="anchor-link" href="#Future-Directions-and-Limitations"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
 <p>Significant potential exists for expanding this framework through:</p>
 <ul>
 <li>Incorporating larger, more diverse datasets including web-scraped content and specialized synthetic datasets like IndicTTI.</li>
@@ -270,12 +302,18 @@ window.onload = wrap_img;
 </div>
 </div>
 </div>
-<div class="cell border-box-sizing text_cell rendered"><div class="inner_cell">
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="References">References<a class="anchor-link" href="#References"> </a></h2><ul>
-<li><p>Kakwani, D., Kunchukuttan, A., Golla, S., N.C., G., Bhattacharyya, A., Khapra, M. M., &amp; Kumar, P. (2020). <em>IndicNLPSuite: Monolingual corpora, evaluation benchmarks and pre-trained multilingual language models for Indian languages</em>. In <em>Findings of EMNLP</em>.</p>
+<h2 id="References">
+<a class="anchor" href="#References" aria-hidden="true"><span class="octicon octicon-link"></span></a>References<a class="anchor-link" href="#References"> </a>
+</h2>
+<ul>
+<li>
+<p>Kakwani, D., Kunchukuttan, A., Golla, S., N.C., G., Bhattacharyya, A., Khapra, M. M., &amp; Kumar, P. (2020). <em>IndicNLPSuite: Monolingual corpora, evaluation benchmarks and pre-trained multilingual language models for Indian languages</em>. In <em>Findings of EMNLP</em>.</p>
 </li>
-<li><p>He, K., Zhang, X., Ren, S., &amp; Sun, J. (2016). <em>Deep Residual Learning for Image Recognition</em>. In <em>Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)</em>, 770-778.</p>
+<li>
+<p>He, K., Zhang, X., Ren, S., &amp; Sun, J. (2016). <em>Deep Residual Learning for Image Recognition</em>. In <em>Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR)</em>, 770-778.</p>
 </li>
 </ul>
 
@@ -286,7 +324,15 @@ window.onload = wrap_img;
 
 
 
-  </div><a class="u-url" href="/experiments/2025/04/26/indic-clip.html" hidden></a>
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/multimodal/fastai/2025/04/26/indic-clip.html" hidden></a>
 </article>
 
       </div>
