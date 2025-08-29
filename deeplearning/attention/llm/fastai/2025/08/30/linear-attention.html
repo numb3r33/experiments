@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Performer vs Softmax — From Kernel View to Fair Speed Tests | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Performer vs Softmax — From Kernel View to Fair Speed Tests" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="TL;DR. I reimplemented softmax attention and a Performer-style linear attention layer from first principles. My first attempt gave terrible perplexity and no speedup. After aligning the implementations (multi-head Wq/Wk/Wv, 1/√d_head scaling, causal prefix sums, unbiased random features), perplexity became close to softmax on TinyStories. Speed still didn’t beat softmax at seq_len=80—because the linear-time benefits only show up when context length N is large relative to the random-feature rank m and when kernels are well-fused. This post walks through the kernel view of softmax, the fixes that mattered, and a rigorous way to measure the crossover." />
+<meta property="og:description" content="TL;DR. I reimplemented softmax attention and a Performer-style linear attention layer from first principles. My first attempt gave terrible perplexity and no speedup. After aligning the implementations (multi-head Wq/Wk/Wv, 1/√d_head scaling, causal prefix sums, unbiased random features), perplexity became close to softmax on TinyStories. Speed still didn’t beat softmax at seq_len=80—because the linear-time benefits only show up when context length N is large relative to the random-feature rank m and when kernels are well-fused. This post walks through the kernel view of softmax, the fixes that mattered, and a rigorous way to measure the crossover." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/attention/llm/fastai/2025/08/30/linear-attention.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/attention/llm/fastai/2025/08/30/linear-attention.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/linear_attention.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-08-30T00:00:00-05:00" />
+<script type="application/ld+json">
+{"headline":"Performer vs Softmax — From Kernel View to Fair Speed Tests","url":"https://numb3r33.github.io/experiments/deeplearning/attention/llm/fastai/2025/08/30/linear-attention.html","dateModified":"2025-08-30T00:00:00-05:00","datePublished":"2025-08-30T00:00:00-05:00","image":"https://numb3r33.github.io/experiments/images/linear_attention.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/attention/llm/fastai/2025/08/30/linear-attention.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"TL;DR. I reimplemented softmax attention and a Performer-style linear attention layer from first principles. My first attempt gave terrible perplexity and no speedup. After aligning the implementations (multi-head Wq/Wk/Wv, 1/√d_head scaling, causal prefix sums, unbiased random features), perplexity became close to softmax on TinyStories. Speed still didn’t beat softmax at seq_len=80—because the linear-time benefits only show up when context length N is large relative to the random-feature rank m and when kernels are well-fused. This post walks through the kernel view of softmax, the fixes that mattered, and a rigorous way to measure the crossover.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Performer vs Softmax — From Kernel View to Fair Speed Tests</h1><p class="page-description">TL;DR. I reimplemented softmax attention and a Performer-style linear attention layer from first principles. My first attempt gave terrible perplexity and no speedup. After aligning the implementations (multi-head Wq/Wk/Wv, 1/√d_head scaling, causal prefix sums, unbiased random features), perplexity became close to softmax on TinyStories. Speed still didn’t beat softmax at seq_len=80—because the linear-time benefits only show up when context length N is large relative to the random-feature rank m and when kernels are well-fused. This post walks through the kernel view of softmax, the fixes that mattered, and a rigorous way to measure the crossover.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-08-30T00:00:00-05:00" itemprop="datePublished">
+        Aug 30, 2025
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      9 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#attention">attention</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#llm">llm</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#fastai">fastai</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2025-08-30-linear-attention.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2025-08-30-linear-attention.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2025-08-30-linear-attention.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Motivation">Motivation </a></li>
+<li class="toc-entry toc-h2"><a href="#Dataset-Acquisition-and-Preprocessing">Dataset Acquisition and Preprocessing </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Three-constructive-feature-maps-for-exp(q·k)">Three constructive feature maps for exp(q·k) </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#Minimal,-corrected-Performer-style-MHA-(sketch)">Minimal, corrected Performer-style MHA (sketch) </a></li>
+<li class="toc-entry toc-h2"><a href="#Experimental-setup">Experimental setup </a></li>
+<li class="toc-entry toc-h2"><a href="#Code">Code </a></li>
+<li class="toc-entry toc-h2"><a href="#Results-(representative)">Results (representative) </a></li>
+<li class="toc-entry toc-h2"><a href="#Why-no-speedup-(yet)">Why no speedup (yet) </a></li>
+<li class="toc-entry toc-h2"><a href="#What-I-would-do-next">What I would do next </a></li>
+<li class="toc-entry toc-h2"><a href="#References">References </a></li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2025-08-30-linear-attention.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Motivation">
+<a class="anchor" href="#Motivation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Motivation<a class="anchor-link" href="#Motivation"> </a>
+</h2>
+<p>Softmax attention is O(N²) in sequence length. Linear attention (e.g., Performer) replaces the exponential kernel with a low-rank feature map so the compute becomes O(N·m). In theory, that should be faster—so why did my early experiments show and no speedup?</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Dataset-Acquisition-and-Preprocessing">
+<a class="anchor" href="#Dataset-Acquisition-and-Preprocessing" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dataset Acquisition and Preprocessing<a class="anchor-link" href="#Dataset-Acquisition-and-Preprocessing"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>For a single head, classic attention uses the exponential kernel $$\kappa(q,k) = e^{q\cdot k}.$$ Softmax attention for a query q_i can be written as a normalized kernel smoother: $$y_i = \frac{\sum_j \kappa(q_i,k_j)\,v_j}{\sum_j \kappa(q_i,k_j)}.$$ If we factor the kernel as an inner product of features $$\kappa(q,k)=\phi(q)^\top\psi(k),\quad
+ y_i = \frac{\phi(q_i)^\top\Big(\sum_j \psi(k_j)v_j^\top\Big)}{\phi(q_i)^\top\Big(\sum_j \psi(k_j)\Big)}.$$ This moves the $$\sum{j}$$ outside the per-token computation, enabling global sums (bidirectional) or prefix sums (causal). That algebra is what turns O(N²) into O(N·m).</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Three-constructive-feature-maps-for-exp(q·k)">
+<a class="anchor" href="#Three-constructive-feature-maps-for-exp(q%C2%B7k)" aria-hidden="true"><span class="octicon octicon-link"></span></a>Three constructive feature maps for exp(q·k)<a class="anchor-link" href="#Three-constructive-feature-maps-for-exp(q%C2%B7k)"> </a>
+</h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ol>
+<li>
+<p>Random positive features (FAVOR+): draw set $$\phi(x)=\frac{1}{\sqrt m}\exp\big(\Omega x - \tfrac{1}{2}\|x\|^2\big),\qquad \Omega\sim\mathcal N(0,I).$$ As m↑, variance↓.</p>
+</li>
+<li>
+<p>Taylor truncation: $$e^{q\cdot k} \approx \sum_{r=0}^{n} \frac{(q\cdot k)^r}{r!}.$$ with tensor-power features (theoretical lens; dims blow up as d^r). $$(q\cdot k)^r = (q^{\otimes r})\cdot (k^{\otimes r}).$$</p>
+</li>
+</ol>
+<ol>
+<li>Limit definition: $$e^{x}=\lim_{n\to\infty}\big(1+\tfrac{x}{n}\big)^{n}.$$
+Finite n → polynomial kernel realized via an n-fold tensor power of an augmented vector.</li>
+</ol>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Minimal,-corrected-Performer-style-MHA-(sketch)">
+<a class="anchor" href="#Minimal,-corrected-Performer-style-MHA-(sketch)" aria-hidden="true"><span class="octicon octicon-link"></span></a>Minimal, corrected Performer-style MHA (sketch)<a class="anchor-link" href="#Minimal,-corrected-Performer-style-MHA-(sketch)"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Core pieces that mattered in practice:</p>
+<ul>
+<li>
+<p>Standard Wq/Wk/Wv + output projection; split into heads.</p>
+</li>
+<li>
+<p>/√d_head scaling applied to both q and k paths.</p>
+</li>
+<li>
+<p>Positive random features (FAVOR+) with unbiased Ω ~ N(0, I).</p>
+</li>
+<li>
+<p>Prefix sums for causal attention; global sums for bidirectional.</p>
+</li>
+<li>
+<p>Small ε in denominators.
+</p>
+<div class="flash flash-success">
+    <svg class="octicon octicon-checklist" viewbox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true"><path fill-rule="evenodd" d="M16 8.5l-6 6-3-3L8.5 10l1.5 1.5L14.5 7 16 8.5zM5.7 12.2l.8.8H2c-.55 0-1-.45-1-1V3c0-.55.45-1 1-1h7c.55 0 1 .45 1 1v6.5l-.8-.8c-.39-.39-1.03-.39-1.42 0L5.7 10.8a.996.996 0 000 1.41v-.01zM4 4h5V3H4v1zm0 2h5V5H4v1zm0 2h3V7H4v1zM3 9H2v1h1V9zm0-2H2v1h1V7zm0-2H2v1h1V5zm0-2H2v1h1V3z"></path></svg>
+    <strong>Tip: </strong>for an orthogonal Ω variant, multiply the orthonormal rows by chi-distributed radii so the rows emulate Gaussian draws.
+</div>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Experimental-setup">
+<a class="anchor" href="#Experimental-setup" aria-hidden="true"><span class="octicon octicon-link"></span></a>Experimental setup<a class="anchor-link" href="#Experimental-setup"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<ul>
+<li>Data: TinyStories subset (train 50k, 20% valid).</li>
+<li>Tokenization: fastai TextBlock, seq_len=80.</li>
+<li>Model: 2 layers, embed_dim=64, n_head=4, GELU FFN×4, LayerNorm, dropout≈0.</li>
+<li>Training: 2 epochs, 1cycle, lr≈2e−3.</li>
+<li>Performer rank: proj_dim m ∈ {64,128} (final runs used m=128).</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Code">
+<a class="anchor" href="#Code" aria-hidden="true"><span class="octicon octicon-link"></span></a>Code<a class="anchor-link" href="#Code"> </a>
+</h2>
+</div>
+</div>
+</div>
+    
+    
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">fastai.text.all</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">fastai.vision.all</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="k">class</span> <span class="nc">RandomFeatureMap</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">"""</span>
+<span class="sd">    FAVOR+ style positive random features for k(q,k) = exp(q·k).</span>
+<span class="sd">    phi(x) = exp(Ω x - ||x||^2 / 2) / sqrt(m), with Ω ~ N(0,I).</span>
+<span class="sd">    """</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">proj_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">orthogonal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">proj_dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">proj_dim</span><span class="p">,</span> <span class="n">dim</span>
+
+        <span class="n">g</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Generator</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span> <span class="n">g</span><span class="o">.</span><span class="n">manual_seed</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">orthogonal</span><span class="p">:</span>
+            <span class="n">omega</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">proj_dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Proper Orthogonal Random Features (blocks of dim with Gaussian radii)</span>
+            <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">remain</span> <span class="o">=</span> <span class="n">proj_dim</span>
+            <span class="k">while</span> <span class="n">remain</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">remain</span><span class="p">)</span>
+                <span class="n">Q</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">qr</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">generator</span><span class="o">=</span><span class="n">g</span><span class="p">))</span>
+                <span class="c1"># draw radii so that rows emulate N(0, I)</span>
+                <span class="n">radii</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">Chi2</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="n">b</span><span class="p">,)))</span>
+                <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">radii</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">Q</span><span class="p">[:</span><span class="n">b</span><span class="p">,</span> <span class="p">:]))</span>
+                <span class="n">remain</span> <span class="o">-=</span> <span class="n">b</span>
+            <span class="n">omega</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">blocks</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">"omega"</span><span class="p">,</span> <span class="n">omega</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">phi</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="sd">"""</span>
+<span class="sd">        x: (B, H, N, d)</span>
+<span class="sd">        returns: (B, H, N, m)</span>
+<span class="sd">        """</span>
+        <span class="n">proj</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"bhnd,md-&gt;bhnm"</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">omega</span><span class="p">)</span>              <span class="c1"># (B,H,N,M)</span>
+        <span class="n">sq</span>   <span class="o">=</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">pow</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">keepdim</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span> <span class="o">*</span> <span class="mf">0.5</span>                <span class="c1"># (B,H,N,1)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">proj</span> <span class="o">-</span> <span class="n">sq</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">proj_dim</span><span class="p">)</span>           <span class="c1"># positive features</span>
+
+
+<span class="k">class</span> <span class="nc">MultiheadPerformerAttention</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">proj_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">causal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">eps</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span> <span class="n">orthogonal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="n">embed_dim</span> <span class="o">%</span> <span class="n">num_heads</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">h</span>  <span class="o">=</span> <span class="n">num_heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d</span>  <span class="o">=</span> <span class="n">embed_dim</span> <span class="o">//</span> <span class="n">num_heads</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">m</span>  <span class="o">=</span> <span class="n">proj_dim</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eps</span> <span class="o">=</span> <span class="n">eps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">causal</span> <span class="o">=</span> <span class="n">causal</span>
+
+        <span class="c1"># Standard projections + output (like MHA)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wq</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wk</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">wo</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="n">RandomFeatureMap</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d</span><span class="p">,</span> <span class="n">proj_dim</span><span class="p">,</span> <span class="n">orthogonal</span><span class="o">=</span><span class="n">orthogonal</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">E</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">H</span><span class="p">,</span> <span class="n">D</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">h</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d</span>
+
+        <span class="c1"># [B,N,E] -&gt; [B,H,N,D], with 1/sqrt(d_head) temperature</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wq</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wk</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">D</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">wv</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">D</span><span class="p">)</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="n">phi_q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature</span><span class="o">.</span><span class="n">phi</span><span class="p">(</span><span class="n">q</span><span class="p">)</span>     <span class="c1"># (B,H,N,M)</span>
+        <span class="n">phi_k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature</span><span class="o">.</span><span class="n">phi</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>     <span class="c1"># (B,H,N,M)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">causal</span><span class="p">:</span>
+            <span class="c1"># Global sums</span>
+            <span class="n">KV</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"bhnm,bhnd-&gt;bhmd"</span><span class="p">,</span> <span class="n">phi_k</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>                  <span class="c1"># (B,H,M,D)</span>
+            <span class="n">z</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"bhnm,bhm-&gt;bhn"</span><span class="p">,</span>     <span class="n">phi_q</span><span class="p">,</span> <span class="n">phi_k</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>     <span class="c1"># (B,H,N)</span>
+            <span class="n">y</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"bhnm,bhmd-&gt;bhnd"</span><span class="p">,</span>   <span class="n">phi_q</span><span class="p">,</span> <span class="n">KV</span><span class="p">)</span>               <span class="c1"># (B,H,N,D)</span>
+            <span class="n">y</span>  <span class="o">=</span> <span class="n">y</span> <span class="o">/</span> <span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Causal: prefix sums over N</span>
+            <span class="c1"># Outer product per position: (B,H,N,M,D)</span>
+            <span class="n">outer</span> <span class="o">=</span> <span class="n">phi_k</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">v</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
+            <span class="n">KVpref</span> <span class="o">=</span> <span class="n">outer</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>                                     <span class="c1"># (B,H,N,M,D)</span>
+            <span class="n">bpref</span>  <span class="o">=</span> <span class="n">phi_k</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>                                     <span class="c1"># (B,H,N,M)</span>
+            <span class="c1"># Contract M: (B,H,N,D) and (B,H,N)</span>
+            <span class="n">y</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"bhnm,bhnmd-&gt;bhnd"</span><span class="p">,</span> <span class="n">phi_q</span><span class="p">,</span> <span class="n">KVpref</span><span class="p">)</span>
+            <span class="n">z</span>  <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"bhnm,bhnm-&gt;bhn"</span><span class="p">,</span>   <span class="n">phi_q</span><span class="p">,</span> <span class="n">bpref</span><span class="p">)</span>
+            <span class="n">y</span>  <span class="o">=</span> <span class="n">y</span> <span class="o">/</span> <span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">clamp_min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eps</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>                     <span class="c1"># [B,N,E]</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">wo</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">PerformerBlock</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">n_head</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">proj_dim</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">causal</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">orthogonal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attn</span> <span class="o">=</span> <span class="n">MultiheadPerformerAttention</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">n_head</span><span class="p">,</span> <span class="n">proj_dim</span><span class="p">,</span> <span class="n">causal</span><span class="o">=</span><span class="n">causal</span><span class="p">,</span> <span class="n">orthogonal</span><span class="o">=</span><span class="n">orthogonal</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ffn</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">dim</span><span class="o">*</span><span class="mi">4</span><span class="p">),</span> <span class="n">nn</span><span class="o">.</span><span class="n">GELU</span><span class="p">(),</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">dim</span><span class="o">*</span><span class="mi">4</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">drop</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm1</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attn</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">norm2</span><span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ffn</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="kn">from</span> <span class="nn">datasets</span> <span class="kn">import</span> <span class="n">load_dataset</span>
+
+<span class="n">hf_ds</span> <span class="o">=</span> <span class="n">load_dataset</span><span class="p">(</span><span class="s2">"roneneldan/TinyStories"</span><span class="p">)</span>   <span class="c1"># {'train': Dataset, 'validation': Dataset}</span>
+
+<span class="n">TARGET_SIZE</span> <span class="o">=</span> <span class="mi">50_000</span>                
+<span class="n">train_full</span>  <span class="o">=</span> <span class="n">hf_ds</span><span class="p">[</span><span class="s2">"train"</span><span class="p">]</span>
+
+<span class="n">SEED</span> <span class="o">=</span> <span class="mi">42</span>
+<span class="n">rng</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">Random</span><span class="p">(</span><span class="n">SEED</span><span class="p">)</span>
+<span class="n">indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">train_full</span><span class="p">)))</span>
+<span class="n">rng</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+
+<span class="c1"># Keep only the first TARGET_SIZE indices (or the whole set if it’s smaller)</span>
+<span class="n">sub_idx</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[:</span><span class="nb">min</span><span class="p">(</span><span class="n">TARGET_SIZE</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">train_full</span><span class="p">))]</span>
+<span class="n">train_subset</span> <span class="o">=</span> <span class="n">train_full</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">sub_idx</span><span class="p">)</span>   <span class="c1"># new Dataset with exactly TARGET_SIZE rows</span>
+
+<span class="c1"># Directory where the cached tokenised tensors will live</span>
+<span class="n">cache_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"./cache_tinystories"</span><span class="p">)</span>
+<span class="n">cache_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Define a fastai TextBlock that reads from the HF column “text”</span>
+<span class="c1"># and automatically caches the tokenised output.</span>
+<span class="n">text_block</span> <span class="o">=</span> <span class="n">TextBlock</span><span class="o">.</span><span class="n">from_df</span><span class="p">(</span>
+    <span class="n">text_cols</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+    <span class="n">is_lm</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">seq_len</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span>                 <span class="c1"># keep your window size</span>
+    <span class="n">cache_dir</span><span class="o">=</span><span class="n">cache_dir</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># Build the DataBlock – we give it the raw HF Dataset objects directly.</span>
+<span class="n">tinystories_block</span> <span class="o">=</span> <span class="n">DataBlock</span><span class="p">(</span>
+    <span class="n">blocks</span><span class="o">=</span><span class="p">(</span><span class="n">text_block</span><span class="p">,),</span>
+    <span class="n">get_x</span><span class="o">=</span><span class="n">ColReader</span><span class="p">(</span><span class="s2">"text"</span><span class="p">),</span>   
+    <span class="n">splitter</span><span class="o">=</span><span class="n">RandomSplitter</span><span class="p">(</span><span class="n">valid_pct</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span>   
+<span class="p">)</span>
+
+<span class="n">dls</span> <span class="o">=</span> <span class="n">tinystories_block</span><span class="o">.</span><span class="n">dataloaders</span><span class="p">(</span>
+    <span class="n">train_subset</span><span class="p">,</span>               
+    <span class="n">bs</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+    <span class="n">num_workers</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+    <span class="n">pin_memory</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">shuffle</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">SimpleMultiHeadAttention</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">"""</span>
+<span class="sd">    A lightweight multi-head attention that mimics fastai's implementation.</span>
+<span class="sd">    - `d_model` : hidden dimension (same as embed_dim)</span>
+<span class="sd">    - `n_head`  : number of attention heads</span>
+<span class="sd">    - `bias`    : whether to use bias in the linear projections</span>
+<span class="sd">    - `causal`  : if True, applies an upper-triangular mask</span>
+<span class="sd">    """</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">d_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">n_head</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+                 <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">causal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">attn_dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.</span><span class="p">):</span>
+        
+        <span class="k">assert</span> <span class="n">d_model</span> <span class="o">%</span> <span class="n">n_head</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"d_model must be divisible by n_head"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_head</span>   <span class="o">=</span> <span class="n">n_head</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">d_head</span>   <span class="o">=</span> <span class="n">d_model</span> <span class="o">//</span> <span class="n">n_head</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scale</span>    <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">d_head</span><span class="p">)</span>
+
+        <span class="c1"># Combined q,k,v projection for efficiency</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">W_qkv</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span> <span class="o">*</span> <span class="mi">3</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">out_proj</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">attn_dropout</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">causal</span>    <span class="o">=</span> <span class="n">causal</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">"""</span>
+<span class="sd">        x : (B, N, d_model)</span>
+<span class="sd">        returns (B, N, d_model)</span>
+<span class="sd">        """</span>
+        <span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="c1"># qkv shape → (B, N, 3, n_head, d_head)</span>
+        <span class="n">qkv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">W_qkv</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_head</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">d_head</span><span class="p">)</span>
+        <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">qkv</span><span class="o">.</span><span class="n">unbind</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>                     <span class="c1"># each -&gt; (B, N, n_head, d_head)</span>
+
+        <span class="c1"># transpose for batched matmul: (B, n_head, N, d_head)</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># scaled dot-product</span>
+        <span class="n">attn_weights</span> <span class="o">=</span> <span class="p">(</span><span class="n">q</span> <span class="o">@</span> <span class="n">k</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">scale</span>   <span class="c1"># (B, n_head, N, N)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">causal</span><span class="p">:</span>
+            <span class="c1"># Upper-triangular mask: allow only j ≤ i</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">triu</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">device</span><span class="p">),</span> <span class="n">diagonal</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">bool</span><span class="p">()</span>
+            <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">attn_weights</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">'-inf'</span><span class="p">))</span>
+
+        <span class="n">attn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">softmax</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">attn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">attn</span><span class="p">)</span>
+
+        <span class="c1"># Weighted sum of values</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="p">(</span><span class="n">attn</span> <span class="o">@</span> <span class="n">v</span><span class="p">)</span>                                   <span class="c1"># (B, n_head, N, d_head)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">N</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># (B, N, d_model)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">out_proj</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">TransformerBlock</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">"""</span>
+<span class="sd">    Minimal fastai-style transformer block.</span>
+<span class="sd">    Parameters match the original fastai class so you can use it interchangeably.</span>
+<span class="sd">    """</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">d_model</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                 <span class="n">n_head</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+                 <span class="n">d_ff</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>          <span class="c1"># hidden size of the FFN; default = 4 * d_model</span>
+                 <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                 <span class="n">dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.</span><span class="p">,</span>       <span class="c1"># dropout after attention &amp; FFN</span>
+                 <span class="n">attn_dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.</span><span class="p">,</span> <span class="c1"># dropout inside attention</span>
+                 <span class="n">ff_dropout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.</span><span class="p">,</span>    <span class="c1"># dropout inside the feed-forward</span>
+                 <span class="n">causal</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                 <span class="n">act_fn</span><span class="p">:</span> <span class="n">nn</span><span class="o">.</span><span class="n">Module</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">GELU</span><span class="p">()):</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">attn</span> <span class="o">=</span> <span class="n">SimpleMultiHeadAttention</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span>
+                                            <span class="n">n_head</span><span class="o">=</span><span class="n">n_head</span><span class="p">,</span>
+                                            <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+                                            <span class="n">causal</span><span class="o">=</span><span class="n">causal</span><span class="p">,</span>
+                                            <span class="n">attn_dropout</span><span class="o">=</span><span class="n">attn_dropout</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ln1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+
+        <span class="c1"># Feed-forward network (two linear layers + activation)</span>
+        <span class="n">ff_dim</span> <span class="o">=</span> <span class="n">d_ff</span> <span class="ow">or</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">d_model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ff</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">d_model</span><span class="p">,</span> <span class="n">ff_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">),</span>
+            <span class="n">act_fn</span><span class="p">,</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">ff_dropout</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">ff_dim</span><span class="p">,</span> <span class="n">d_model</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">),</span>
+            <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ln2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">d_model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Dropout</span><span class="p">(</span><span class="n">dropout</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="sd">"""</span>
+<span class="sd">        x : (B, N, d_model)</span>
+<span class="sd">        Returns the same shape after applying:</span>
+<span class="sd">          self-attention + residual + norm</span>
+<span class="sd">          feed-forward + residual + norm</span>
+<span class="sd">        """</span>
+        <span class="n">attn_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dropout</span><span class="p">(</span><span class="n">attn_out</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ln1</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">ff_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ff</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">ff_out</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ln2</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">x</span>
+
+
+<span class="k">class</span> <span class="nc">SoftmaxLM</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">"""Standard fastai transformer with softmax attention."""</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vocab_sz</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">n_head</span><span class="p">,</span> <span class="n">n_layer</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">vocab_sz</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">))</span>   <span class="c1"># static positional encodings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">TransformerBlock</span><span class="p">(</span><span class="n">d_model</span><span class="o">=</span><span class="n">embed_dim</span><span class="p">,</span>
+                             <span class="n">n_head</span><span class="o">=</span><span class="n">n_head</span><span class="p">,</span>
+                             <span class="n">causal</span><span class="o">=</span><span class="n">causal</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_layer</span><span class="p">)</span>
+        <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ln</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">vocab_sz</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">blk</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">blk</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ln</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">PerformerLM</span><span class="p">(</span><span class="n">Module</span><span class="p">):</span>
+    <span class="sd">"""Transformer that swaps the softmax block for Performer-style linear attention."""</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vocab_sz</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">n_head</span><span class="p">,</span> <span class="n">n_layer</span><span class="p">,</span> <span class="n">proj_dim</span><span class="p">,</span> <span class="n">causal</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">emb</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Embedding</span><span class="p">(</span><span class="n">vocab_sz</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pos</span>  <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Parameter</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">512</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">([</span>
+            <span class="n">PerformerBlock</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">embed_dim</span><span class="p">,</span>
+                          <span class="n">n_head</span><span class="o">=</span><span class="n">n_head</span><span class="p">,</span>
+                          <span class="n">proj_dim</span><span class="o">=</span><span class="n">proj_dim</span><span class="p">,</span>
+                          <span class="n">causal</span><span class="o">=</span><span class="n">causal</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_layer</span><span class="p">)</span>
+        <span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ln</span>   <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">LayerNorm</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">head</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">embed_dim</span><span class="p">,</span> <span class="n">vocab_sz</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">b</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">emb</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos</span><span class="p">[:,</span> <span class="p">:</span><span class="n">n</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">blk</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">blocks</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">blk</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ln</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">EpochTimer</span><span class="p">(</span><span class="n">Callback</span><span class="p">):</span>
+    <span class="sd">"""Records wall-clock time for each epoch."""</span>
+    <span class="k">def</span> <span class="nf">before_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epoch_times</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">def</span> <span class="nf">after_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epoch_times</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">epoch_start</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">before_epoch</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epoch_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">train_one</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">epochs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">lr</span><span class="o">=</span><span class="mf">2e-3</span><span class="p">):</span>
+    <span class="n">learn</span> <span class="o">=</span> <span class="n">Learner</span><span class="p">(</span><span class="n">dls</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span>
+                    <span class="n">loss_func</span><span class="o">=</span><span class="n">CrossEntropyLossFlat</span><span class="p">(),</span>
+                    <span class="n">metrics</span><span class="o">=</span><span class="p">[</span><span class="n">Perplexity</span><span class="p">()],</span>         <span class="c1"># fastai's built-in perplexity metric</span>
+                    <span class="n">cbs</span><span class="o">=</span><span class="n">EpochTimer</span><span class="p">())</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== Training </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> ==="</span><span class="p">)</span>
+    <span class="n">learn</span><span class="o">.</span><span class="n">fit_one_cycle</span><span class="p">(</span><span class="n">epochs</span><span class="p">,</span> <span class="n">lr</span><span class="p">)</span>
+    <span class="n">final_ppl</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">learn</span><span class="o">.</span><span class="n">validate</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">learn</span><span class="o">.</span><span class="n">cbs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">epoch_times</span><span class="p">,</span> <span class="n">final_ppl</span>
+
+
+<span class="n">softmax_model</span> <span class="o">=</span> <span class="n">SoftmaxLM</span><span class="p">(</span><span class="n">vocab_sz</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">n_head</span><span class="p">,</span> <span class="n">n_layer</span><span class="p">)</span>
+<span class="n">soft_times</span><span class="p">,</span> <span class="n">soft_ppl</span> <span class="o">=</span> <span class="n">train_one</span><span class="p">(</span><span class="n">softmax_model</span><span class="p">,</span> <span class="s2">"Softmax-Transformer"</span><span class="p">)</span>
+
+<span class="n">performer_model</span> <span class="o">=</span> <span class="n">PerformerLM</span><span class="p">(</span><span class="n">vocab_sz</span><span class="p">,</span> <span class="n">embed_dim</span><span class="p">,</span> <span class="n">n_head</span><span class="p">,</span> <span class="n">n_layer</span><span class="p">,</span>
+                                <span class="n">proj_dim</span><span class="o">=</span><span class="n">proj_dim</span><span class="p">,</span> <span class="n">causal</span><span class="o">=</span><span class="n">causal</span><span class="p">)</span>
+<span class="n">perf_times</span><span class="p">,</span> <span class="n">perf_ppl</span> <span class="o">=</span> <span class="n">train_one</span><span class="p">(</span><span class="n">performer_model</span><span class="p">,</span> <span class="s2">"Performer-Transformer"</span><span class="p">)</span>
+
+<span class="n">summary</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">"Model"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"Softmax-Transformer"</span><span class="p">,</span> <span class="s2">"Performer-Transformer"</span><span class="p">],</span>
+    <span class="s2">"Final Perplexity"</span><span class="p">:</span> <span class="p">[</span><span class="n">soft_ppl</span><span class="p">,</span> <span class="n">perf_ppl</span><span class="p">],</span>
+    <span class="s2">"Epoch times (sec)"</span><span class="p">:</span> <span class="p">[</span><span class="n">soft_times</span><span class="p">,</span> <span class="n">perf_times</span><span class="p">],</span>
+    <span class="s2">"Avg time (sec)"</span><span class="p">:</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">soft_times</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">soft_times</span><span class="p">),</span>
+                        <span class="nb">sum</span><span class="p">(</span><span class="n">perf_times</span><span class="p">)</span><span class="o">/</span><span class="nb">len</span><span class="p">(</span><span class="n">perf_times</span><span class="p">)]</span>
+<span class="p">})</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">=== Comparison ==="</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">to_string</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+
+    </div>
+</div>
+</div>
+
+</div>
+    
+
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Results-(representative)">
+<a class="anchor" href="#Results-(representative)" aria-hidden="true"><span class="octicon octicon-link"></span></a>Results (representative)<a class="anchor-link" href="#Results-(representative)"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th style="text-align:right">Valid PPL</th>
+<th style="text-align:right">Epoch time (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Softmax Transformer</td>
+<td style="text-align:right"><strong>~1.09</strong></td>
+<td style="text-align:right"><strong>~127</strong></td>
+</tr>
+<tr>
+<td>Performer Transformer (m=128)</td>
+<td style="text-align:right"><strong>~1.13</strong></td>
+<td style="text-align:right"><strong>~128</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Perplexity parity achieved; no speedup at N=80.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Why-no-speedup-(yet)">
+<a class="anchor" href="#Why-no-speedup-(yet)" aria-hidden="true"><span class="octicon octicon-link"></span></a>Why no speedup (yet)<a class="anchor-link" href="#Why-no-speedup-(yet)"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>Back-of-envelope FLOPs per head (ignoring projections/FFN):</p>
+<p>Softmax:  $4𝑁^{2}𝐷$
+ </p>
+<p>Performer:  𝑐⋅𝑁⋅𝑚⋅𝐷, with c≈6–10 (feature projections, exp, and cumsums). 
+ </p>
+<p>Break-even: $$4N^2D \approx c\,N\,m\,D\;\Rightarrow\; N \approx \frac{c}{4}\,m.$$</p>
+<p>With c≈8 and m=128, break-even  𝑁≈256</p>
+<p>At short contexts (N≪256), softmax’s O(N²) cost is still small, and modern softmax kernels (FlashAttention/Xformers) are heavily fused. A naïve einsum-based linear attention will not be faster.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="What-I-would-do-next">
+<a class="anchor" href="#What-I-would-do-next" aria-hidden="true"><span class="octicon octicon-link"></span></a>What I would do next<a class="anchor-link" href="#What-I-would-do-next"> </a>
+</h2>
+<ul>
+<li>
+<p>Long-context grid: (N×m) sweep to locate the speed crossover on my GPU.</p>
+</li>
+<li>
+<p>Fused kernels: compare Softmax(FlashAttention) vs Performer(fused FAVOR+) to reflect realistic deployments.</p>
+</li>
+<li>
+<p>Hybrid maps: combine a small random-feature bank with a low-degree deterministic Taylor tail to reduce variance.</p>
+</li>
+<li>
+<p>Layer-wise m: try larger m only in upper layers or selected heads.</p>
+</li>
+<li>
+<p>Task sensitivity: evaluate on tasks where attention patterns are smoother (long-range modeling), where linear attention often shines.</p>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="References">
+<a class="anchor" href="#References" aria-hidden="true"><span class="octicon octicon-link"></span></a>References<a class="anchor-link" href="#References"> </a>
+</h2>
+<ul>
+<li>
+<p>Su Jianlin — perspective that softmax attention is linear in an infinite-dimensional space and constructive feature maps for exp kernels.</p>
+</li>
+<li>
+<p>Choromanski et al., Rethinking Attention with Performers (ICLR 2021): FAVOR+ positive random features and linear-time attention.</p>
+</li>
+<li>
+<p>Dao et al., FlashAttention series: fused softmax attention kernels for long contexts.</p>
+</li>
+</ul>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/attention/llm/fastai/2025/08/30/linear-attention.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
