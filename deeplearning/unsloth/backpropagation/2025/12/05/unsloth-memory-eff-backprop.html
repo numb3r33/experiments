@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Memory-Efficient Backprop: Solving Unsloth’s Challenge E | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Memory-Efficient Backprop: Solving Unsloth’s Challenge E" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Notes on all experiments and learnings." />
+<meta property="og:description" content="Notes on all experiments and learnings." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/05/unsloth-memory-eff-backprop.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/05/unsloth-memory-eff-backprop.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/unsloth_challenge_e.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-12-05T00:00:00-06:00" />
+<script type="application/ld+json">
+{"headline":"Memory-Efficient Backprop: Solving Unsloth’s Challenge E","url":"https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/05/unsloth-memory-eff-backprop.html","dateModified":"2025-12-05T00:00:00-06:00","datePublished":"2025-12-05T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/unsloth_challenge_e.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/05/unsloth-memory-eff-backprop.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"Notes on all experiments and learnings.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Memory-Efficient Backprop: Solving Unsloth&#39;s Challenge E</h1><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-12-05T00:00:00-06:00" itemprop="datePublished">
+        Dec 5, 2025
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      8 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#unsloth">unsloth</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#backpropagation">backpropagation</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2025-12-05-unsloth-memory-eff-backprop.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2025-12-05-unsloth-memory-eff-backprop.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2025-12-05-unsloth-memory-eff-backprop.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Starting-Point:-What-I-Knew-(and-Didn't-Know)">Starting Point: What I Knew (and Didn&#39;t Know) </a></li>
+<li class="toc-entry toc-h2"><a href="#Building-the-Foundation:">Building the Foundation: </a></li>
+<li class="toc-entry toc-h2"><a href="#Manual-gradient-computation">Manual gradient computation </a></li>
+<li class="toc-entry toc-h2"><a href="#Checkpointing-Intuition">Checkpointing Intuition </a></li>
+<li class="toc-entry toc-h2"><a href="#The-Implementation">The Implementation </a></li>
+<li class="toc-entry toc-h2"><a href="#Section-and-Benchmarks">Section and Benchmarks </a></li>
+<li class="toc-entry toc-h2"><a href="#Real-Model-Integration:-OPT-125M">Real Model Integration: OPT-125M </a></li>
+<li class="toc-entry toc-h2"><a href="#Reflections-and-What's-Next">Reflections and What&#39;s Next </a></li>
+<li class="toc-entry toc-h2"><a href="#What's-Next:-GRPO-and-Beyond">What&#39;s Next: GRPO and Beyond </a></li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2025-12-05-unsloth-memory-eff-backprop.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Starting-Point:-What-I-Knew-(and-Didn't-Know)">
+<a class="anchor" href="#Starting-Point:-What-I-Knew-(and-Didn't-Know)" aria-hidden="true"><span class="octicon octicon-link"></span></a>Starting Point: What I Knew (and Didn't Know)<a class="anchor-link" href="#Starting-Point:-What-I-Knew-(and-Didn't-Know)"> </a>
+</h2>
+<p>When I first encountered <a href="https://colab.research.google.com/drive/1JqKqA1XWeLHvnYAc0wzrR4JBCnq43HyH?usp=sharing#scrollTo=Rp-IJIbv90f6">Unsloth's Challenges</a>, I got hooked, they seemed like a perfect way to test my understanding and identify knowledge gaps. I chose Challenge E on memory-efficient backpropagation as my starting point: it looked approachable given my foundations, but I had to be honest with myself about what I didn't know.</p>
+<p>What I brought to the table:</p>
+<ul>
+<li>Solid PyTorch fundamentals, but I'd never worked with torch.autograd.Function or gradient checkpointing in detail</li>
+<li>Strong mathematical foundations: calculus (chain rule) and linear algebra came naturally</li>
+</ul>
+<p><strong>The Challenge:</strong></p>
+<p>The problem was clear: in LLMs, the final layer projects hidden states to vocabulary logits using $\sigma(XW)$. For large vocabularies (128K tokens), this creates massive memory spikes.</p>
+<p><strong>The numbers:</strong> With batch=4, seq_len=4096, hidden_dim=4096, vocab=128K, the logits alone consume 4GB in bfloat16 (8GB in float32).</p>
+<p><strong>The goal:</strong> Implement a memory-efficient backpropagation that:</p>
+<ul>
+<li>Reduces VRAM usage by 50%</li>
+<li>Doesn't hardcode gradients (must use autograd)</li>
+<li>Works with cross entropy and other loss functions</li>
+<li>Supports dynamic chunk sizes</li>
+<li>Matches training loss on real models (Llama 1B)</li>
+</ul>
+<p>My approach: Rather than dive straight into code, I wanted to fill the knowledge gaps to build understanding systematically.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Building-the-Foundation:">
+<a class="anchor" href="#Building-the-Foundation:" aria-hidden="true"><span class="octicon octicon-link"></span></a>Building the Foundation:<a class="anchor-link" href="#Building-the-Foundation:"> </a>
+</h2>
+<p>Rather than jumping straight to implementation, I mapped out prerequisite concepts as a dependency graph, each node representing a focused exercise building on previous ones.</p>
+<p>Layer 1: Core Autograd Mechanics</p>
+<p><strong>Node 1</strong> - Custom autograd basics: I started by understanding <code>torch.autograd.Function</code>. The key insight came from implementing a simple Square function:</p>
+<div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Square</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span> <span class="o">**</span> <span class="mi">2</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="k">return</span> <span class="n">grad_output</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span>
+</pre></div>
+<p>My "aha" moment: grad_output is the upstream gradient, and we multiply it by the local gradient (2x). The chain rule in action.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Manual-gradient-computation">
+<a class="anchor" href="#Manual-gradient-computation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Manual gradient computation<a class="anchor-link" href="#Manual-gradient-computation"> </a>
+</h2>
+<p>Implementing ReLU</p>
+<p>To cement my understanding, I implemented a custom ReLU:</p>
+<div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">ReLU</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">clamp</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">min</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">):</span>
+        <span class="n">x</span><span class="p">,</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+        <span class="n">local_grad</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="n">local_grad</span><span class="p">[</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">grad_output</span> <span class="o">*</span> <span class="n">local_grad</span>
+</pre></div>
+<p><strong>Node 2</strong>: Manual Gradient Computation</p>
+<p>Next, I derived gradients for a linear layer by hand. Given Y = X @ W and loss = Y.sum():</p>
+<p>dL/dY = tensor of ones (shape matches Y)
+dL/dW = X.T @ dL/dY
+dL/dX = dL/dY @ W.T</p>
+<p>I verified these against PyTorch's autograd:</p>
+<div class="highlight"><pre><span></span><span class="n">x</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">w</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">requires_grad</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="n">y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">@</span> <span class="n">w</span>
+<span class="n">l</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<span class="n">l</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+
+<span class="n">dl_dy</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+<span class="n">dl_dw</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">T</span> <span class="o">@</span> <span class="n">dl_dy</span>
+<span class="n">dl_dx</span> <span class="o">=</span> <span class="n">dl_dy</span> <span class="o">@</span> <span class="n">w</span><span class="o">.</span><span class="n">T</span>
+
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">w</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">dl_dw</span><span class="p">)</span> 
+<span class="k">assert</span> <span class="n">torch</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">grad</span><span class="p">,</span> <span class="n">dl_dx</span><span class="p">)</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Checkpointing-Intuition">
+<a class="anchor" href="#Checkpointing-Intuition" aria-hidden="true"><span class="octicon octicon-link"></span></a>Checkpointing Intuition<a class="anchor-link" href="#Checkpointing-Intuition"> </a>
+</h2>
+<p><strong>Node 3:</strong> The memory-compute tradeoff:</p>
+<p>Another "aha" moment came when I understood what we're actually checkpointing:</p>
+<table>
+<thead>
+<tr>
+<th>Approach</th>
+<th>What's stored</th>
+<th>Peak memory</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal</td>
+<td>Full logits [batch × seq × vocab]</td>
+<td>4GB</td>
+</tr>
+<tr>
+<td>Chunked (2 chunks)</td>
+<td>Half the logits at a time</td>
+<td>2GB</td>
+</tr>
+</tbody>
+</table>
+<p>We save the inputs (X, labels), throw away the massive logits, and recompute them chunk-by-chunk during backward. The key insight: gradients from independent chunks can simply be summed, that's gradient accumulation.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="The-Implementation">
+<a class="anchor" href="#The-Implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Implementation<a class="anchor-link" href="#The-Implementation"> </a>
+</h2>
+<p><strong>Node 5-6:</strong> Building the Chunked Forward and Backward</p>
+<p>With the foundations in place, I started implementing MemoryEfficientLinear. The forward pass seemed straightforward: chunk the inputs, compute losses, combine with weighted average.</p>
+<p>My first forward pass attempt:</p>
+
+<pre><code>def forward(ctx, X, linear, labels, forward_function, num_chunks):
+    Xs = torch.chunk(X, num_chunks, dim=0)
+    Ys = torch.chunk(labels, num_chunks)
+    losses = []
+    ws = []
+
+    for i, _ in enumerate(Xs):
+        loss = forward_function(Xs[i], linear, Ys[i])
+        ws.append(torch.tensor(len(Xs[i])))
+        losses.append(loss)
+
+    ws = torch.stack(ws)
+    losses = torch.stack(losses)
+    ws = ws / ws.sum()
+
+    ctx.save_for_backward(X, labels)
+    ctx.linear = linear
+    ctx.forward_function = forward_function
+    ctx.num_chunks = num_chunks
+    ctx.ws = ws
+
+    return (ws * losses).sum()</code></pre>
+<p><strong>Why weighted average?</strong></p>
+<p>Each chunk might have different sizes (especially the last one), and since CrossEntropyLoss uses reduction="mean", I needed to weight by chunk size to get the correct overall mean.</p>
+<p>The Backward Pass — Where Things Got Tricky</p>
+<p>The backward implementation required recomputing the forward pass chunk-by-chunk:</p>
+
+<pre><code>def backward(ctx, grad_output):
+    X, labels = ctx.saved_tensors
+    linear = ctx.linear
+    forward_function = ctx.forward_function
+    num_chunks = ctx.num_chunks
+    ws = ctx.ws
+
+    linear.zero_grad()
+
+    X_chunks = torch.chunk(X, num_chunks, dim=0)
+    label_chunks = torch.chunk(labels, num_chunks)
+
+    dX_chunks = []
+    for i, (x_chunk, label_chunk) in enumerate(zip(X_chunks, label_chunks)):
+        x_chunk = x_chunk.clone().requires_grad_()
+
+        with torch.enable_grad():
+            loss = forward_function(x_chunk, linear, label_chunk)
+
+        loss.backward(grad_output * ws[i])  # Weighted!
+        dX_chunks.append(x_chunk.grad.detach().clone())
+
+    dX = torch.cat(dX_chunks, dim=0)
+
+    return dX, None, None, None, None</code></pre>
+<p>Bug Hunt #1: The Mystery of 2× Gradients</p>
+<p>When I first tested this, the assertions failed:</p>
+
+<pre><code>Normal weight grad: [[ 0.0737,  0.0557,  0.1557], ...]
+Efficient weight grad: [[ 0.1473,  0.1115,  0.3114], ...]</code></pre>
+<p>The efficient gradients were exactly double!</p>
+<p>Debugging process:</p>
+<ol>
+<li>Added print statements: discovered linear.weight.grad already had values at the start of backward</li>
+<li>Realized the forward pass was creating a computation graph connecting to linear.weight</li>
+<li>The fix: Wrap forward computations in torch.no_grad() to prevent double-counting</li>
+</ol>
+<p>Bug Hunt #2: The Weighted Gradient Mystery</p>
+<p>Even after fixing the torch.no_grad() issue, I was still getting 2× gradients. More debugging:</p>
+
+<pre><code>print(f"Chunk loss requires_grad: {loss.requires_grad}")
+# Output: False</code></pre>
+<p>The chunk losses weren't tracking gradients! The problem: When I chunked the saved tensors in backward, they were detached from the graph.</p>
+<p>The fix: Wrap the forward recomputation in with torch.enable_grad():</p>
+<p>But there was still one more issue — I was passing the full grad_output to each chunk's backward, when I should have been scaling by the weight:</p>
+
+<pre><code>loss.backward(grad_output * ws[i])  # Not just grad_output!</code></pre>
+<p>Why? The forward pass computed a weighted average: (ws * losses).sum(). By the chain rule:</p>
+<p>dL/d(loss_i) = ws[i] * grad_output
+Each chunk contributes proportionally to the final loss, so its gradient must be scaled accordingly.</p>
+<p>After this fix, the assertions finally passed!</p>
+<p>Bug Hunt #3: Device Mismatch on GPU</p>
+<p>When I moved to GPU testing for memory benchmarks:</p>
+
+<pre><code>RuntimeError: Expected all tensors to be on the same device, 
+but found at least two devices, cuda:0 and cpu!</code></pre>
+<p>The culprit: torch.tensor(len(Xs[i])) creates tensors on CPU by default.</p>
+<p>The fix: Specify device explicitly:</p>
+
+<pre><code>ws.append(torch.tensor(len(Xs[i]), device=X.device))</code></pre>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Section-and-Benchmarks">
+<a class="anchor" href="#Section-and-Benchmarks" aria-hidden="true"><span class="octicon octicon-link"></span></a>Section and Benchmarks<a class="anchor-link" href="#Section-and-Benchmarks"> </a>
+</h2>
+<p>Validating Correctness</p>
+<p>First, I verified the implementation produced identical results to the standard approach:</p>
+
+<pre><code># Normal approach
+loss = transformation_function(X, linear, labels)
+loss.backward()
+normal_weight_grad = linear.weight.grad.clone()
+
+# Efficient approach  
+loss_efficient = MemoryEfficientLinear.apply(X, linear, labels, transformation_function, 2)
+loss_efficient.backward()
+
+assert torch.allclose(normal_weight_grad, linear.weight.grad, atol=1e-6)</code></pre>
+<p>Testing other loss functions (MSE):</p>
+
+<pre><code>def mse_transformation_function(batch, linear, labels):
+    x = linear(batch).float()
+    loss_fn = MSELoss()
+    return loss_fn(x, labels)</code></pre>
+<p>Both cross entropy and MSE passed — the implementation generalizes!</p>
+<p>Memory Benchmarks</p>
+<p>Toy example (batch=4096, hidden=1024, vocab=8192):</p>
+
+<pre><code>Normal peak: 0.69 GB
+Efficient (4 chunks): 0.37 GB
+Savings: 46.2%</code></pre>
+<p>Nearly hit the 50% target! As expected, more chunks = more savings.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Real-Model-Integration:-OPT-125M">
+<a class="anchor" href="#Real-Model-Integration:-OPT-125M" aria-hidden="true"><span class="octicon octicon-link"></span></a>Real Model Integration: OPT-125M<a class="anchor-link" href="#Real-Model-Integration:-OPT-125M"> </a>
+</h2>
+<p>I integrated with Hugging Face's OPT-125M by creating a wrapper:</p>
+
+<pre><code>class MemoryEfficientLMHead(nn.Module):
+    def __init__(self, original_lm_head, num_chunks=4):
+        super().__init__()
+        self.linear = original_lm_head
+        self.num_chunks = num_chunks
+
+    def forward(self, hidden_states, labels=None):
+        if labels is None:
+            return self.linear(hidden_states)  # Inference
+
+        batch, seq_len, hidden = hidden_states.shape
+        hidden_flat = hidden_states.view(-1, hidden)
+        labels_flat = labels.view(-1)
+
+        loss = MemoryEfficientLinear.apply(
+            hidden_flat, self.linear, labels_flat,
+            transformation_function, self.num_chunks
+        )
+        return loss</code></pre>
+<p>Results (batch=8, seq_len=512):</p>
+
+<pre><code>Normal: 3.20 GB
+Efficient: 2.70 GB  
+Savings: 15.7%
+Loss match: (8.556 vs 8.556)</code></pre>
+<p>Lower savings percentage than the toy example because model weights and other activations dominate memory, but the logits reduction is working as expected.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Reflections-and-What's-Next">
+<a class="anchor" href="#Reflections-and-What's-Next" aria-hidden="true"><span class="octicon octicon-link"></span></a>Reflections and What's Next<a class="anchor-link" href="#Reflections-and-What's-Next"> </a>
+</h2>
+<p>What I Learned</p>
+<p>This challenge was a masterclass in how theory meets practice. On paper, "chunk the computation and accumulate gradients" sounds simple. In reality:</p>
+<ul>
+<li>Autograd is subtle: Understanding when gradients flow, when they accumulate, and when they get zeroed required careful reasoning about PyTorch's execution model</li>
+<li>Debugging is systematic: The 2× gradient bug taught me to add strategic print statements and work backwards from symptoms to root causes</li>
+<li>Weighted gradients matter: The chain rule doesn't just apply to functions — it applies to how you combine losses</li>
+</ul>
+<p><strong>The biggest insight:</strong> Breaking down complex problems into a dependency graph of smaller exercises isn't just good pedagogy, it's how you build robust implementations. Each node gave me one piece of the puzzle, and when bugs appeared, I knew exactly which piece to inspect.</p>
+<p>Scoring Against the Rubric</p>
+<p>According to Unsloth's criteria:</p>
+<ul>
+<li>VRAM 50% reduction: (2 points)</li>
+<li>Cross entropy works: (1 point)</li>
+<li>Other functions work: (1 point)</li>
+<li>No hardcoded gradients: Using autograd throughout (required)</li>
+<li>Dynamic chunk sizes: Tested 1, 2, 4, 8 chunks (1 point)</li>
+<li>Real model integration: (1 point conceptually :D still have to test with LLama-1B)</li>
+</ul>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="What's-Next:-GRPO-and-Beyond">
+<a class="anchor" href="#What's-Next:-GRPO-and-Beyond" aria-hidden="true"><span class="octicon octicon-link"></span></a>What's Next: GRPO and Beyond<a class="anchor-link" href="#What's-Next:-GRPO-and-Beyond"> </a>
+</h2>
+<p>The remaining 4 points come from GRPO (Group Relative Policy Optimization) integration — a reinforcement learning technique for LLM fine-tuning.</p>
+<p><strong>The challenge:</strong> GRPO generates multiple responses per prompt and needs log probabilities (not just losses) for all of them. This requires:</p>
+<ul>
+<li>Generalizing MemoryEfficientLinear to return vectors instead of scalars</li>
+<li>Handling per-token gradients instead of aggregated loss gradients</li>
+<li>Integration with RL training loops</li>
+</ul>
+<p><strong>Conceptual approach:</strong></p>
+<ol>
+<li>Modify transformation function to return log probabilities: [N] instead of scalar</li>
+<li>Chunk and concatenate outputs instead of weighted averaging</li>
+<li>Slice grad_output to match each chunk during backward</li>
+</ol>
+<p>This is where the implementation gets significantly more complex, but the foundation is solid.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>What started as "I don't know custom autograd" became a working memory-efficient backpropagation system tested on real models. The journey reinforced that in ML systems work, understanding the fundamentals deeply autograd mechanics, gradient flow, memory management is what separates implementations that "kind of work" from ones that are correct, efficient, and generalizable.</p>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/unsloth/backpropagation/2025/12/05/unsloth-memory-eff-backprop.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
