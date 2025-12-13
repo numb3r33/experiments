@@ -106,6 +106,17 @@ window.onload = wrap_img;
    <!-- Assemble final sorted posts array -->
   
   <ul class="post-list"><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
+        <img class="image-preview " src="/experiments/images/unsloth_fsdp2_qlora.png" />
+      </div><div class="col-8 d-table-cell p-3">
+        <h3>
+          <a class="post-link" href="/experiments/deeplearning/unsloth/backpropagation/2025/12/15/unsloth-fsdp2-qlora.html">
+            Making FSDP2 and QLoRA Work Together: Training Llama 8B on 2 GPUs
+          </a>
+        </h3>
+        <p class="post-meta-description">TL;DR. Training Llama 3.1 8B on 2x consumer GPUs should be straightforward with FSDP2 and QLoRA - except FSDP2's parameter sharding breaks on quantized weights. After wrestling with RuntimeError: Cannot flatten integer dtype tensors and discovering why Params4bit objects can't become DTensors, I found the solution: selective sharding with ignored_params.</p>
+          <p class="post-meta">Dec 15, 2025</p>
+      </div>
+  </div></li><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
         <img class="image-preview " src="/experiments/images/unsloth_challenge_e.png" />
       </div><div class="col-8 d-table-cell p-3">
         <h3>
@@ -172,17 +183,6 @@ window.onload = wrap_img;
           <p class="post-meta">Mar 1, 2025</p>
       </div>
   </div></li><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
-        <img class="image-preview " src="/experiments/images/elmo.webp" />
-      </div><div class="col-8 d-table-cell p-3">
-        <h3>
-          <a class="post-link" href="/experiments/optimization/math/deeplearning/fast.ai/2024/12/17/elmo.html">
-            Deep-Contextualized Embeddings ( ELMO )
-          </a>
-        </h3>
-        <p class="post-meta-description">How to implement the ELMO paper in fast.ai <a href='https://arxiv.org/abs/1802.05365'>paper</a></p>
-          <p class="post-meta">Dec 17, 2024</p>
-      </div>
-  </div></li><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
         <img class="image-preview " src="/experiments/images/res_learning.png" />
       </div><div class="col-8 d-table-cell p-3">
         <h3>
@@ -192,6 +192,17 @@ window.onload = wrap_img;
         </h3>
         <p class="post-meta-description">Understanding the role of residuals in model training.</p>
           <p class="post-meta">Sep 19, 2022</p>
+      </div>
+  </div></li><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
+        <img class="image-preview " src="/experiments/images/elmo.webp" />
+      </div><div class="col-8 d-table-cell p-3">
+        <h3>
+          <a class="post-link" href="/experiments/optimization/math/deeplearning/fast.ai/2024/12/17/elmo.html">
+            Deep-Contextualized Embeddings ( ELMO )
+          </a>
+        </h3>
+        <p class="post-meta-description">How to implement the ELMO paper in fast.ai <a href='https://arxiv.org/abs/1802.05365'>paper</a></p>
+          <p class="post-meta">Dec 17, 2024</p>
       </div>
   </div></li><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
         <img class="image-preview " src="/experiments/images/pix2pix.png" />
@@ -258,17 +269,6 @@ window.onload = wrap_img;
         </h3>
         <p class="post-meta-description">Implement convolutions as matrix operations using <a href='https://inria.hal.science/file/index/docid/112631/filename/p1038112283956.pdf'>im2col</a></p>
           <p class="post-meta">Dec 23, 2023</p>
-      </div>
-  </div></li><li><div class="Box box-shadow-medium rounded-1 col-12"><div class="col-4 d-table-cell p-3 v-align-middle">
-        <img class="image-preview " src="/experiments/images/aeda.png" />
-      </div><div class="col-8 d-table-cell p-3">
-        <h3>
-          <a class="post-link" href="/experiments/deeplearning/math/fastai/nlp/2022/01/31/aeda-text-augmentation.html">
-            AEDA ( An Easier Data Augmentation Technique for Text Classification )
-          </a>
-        </h3>
-        <p class="post-meta-description">A new data augmentation method proposed for text classification.</p>
-          <p class="post-meta">Jan 31, 2022</p>
       </div>
   </div></li></ul>
 

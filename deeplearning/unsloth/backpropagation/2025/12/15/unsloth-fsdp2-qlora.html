@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>Making FSDP2 and QLoRA Work Together: Training Llama 8B on 2 GPUs | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="Making FSDP2 and QLoRA Work Together: Training Llama 8B on 2 GPUs" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="TL;DR. Training Llama 3.1 8B on 2x consumer GPUs should be straightforward with FSDP2 and QLoRA - except FSDP2’s parameter sharding breaks on quantized weights. After wrestling with RuntimeError: Cannot flatten integer dtype tensors and discovering why Params4bit objects can’t become DTensors, I found the solution: selective sharding with ignored_params." />
+<meta property="og:description" content="TL;DR. Training Llama 3.1 8B on 2x consumer GPUs should be straightforward with FSDP2 and QLoRA - except FSDP2’s parameter sharding breaks on quantized weights. After wrestling with RuntimeError: Cannot flatten integer dtype tensors and discovering why Params4bit objects can’t become DTensors, I found the solution: selective sharding with ignored_params." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/15/unsloth-fsdp2-qlora.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/15/unsloth-fsdp2-qlora.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/unsloth_fsdp2_qlora.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-12-15T00:00:00-06:00" />
+<script type="application/ld+json">
+{"headline":"Making FSDP2 and QLoRA Work Together: Training Llama 8B on 2 GPUs","url":"https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/15/unsloth-fsdp2-qlora.html","dateModified":"2025-12-15T00:00:00-06:00","datePublished":"2025-12-15T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/unsloth_fsdp2_qlora.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/unsloth/backpropagation/2025/12/15/unsloth-fsdp2-qlora.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"TL;DR. Training Llama 3.1 8B on 2x consumer GPUs should be straightforward with FSDP2 and QLoRA - except FSDP2’s parameter sharding breaks on quantized weights. After wrestling with RuntimeError: Cannot flatten integer dtype tensors and discovering why Params4bit objects can’t become DTensors, I found the solution: selective sharding with ignored_params.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">Making FSDP2 and QLoRA Work Together: Training Llama 8B on 2 GPUs</h1><p class="page-description">TL;DR. Training Llama 3.1 8B on 2x consumer GPUs should be straightforward with FSDP2 and QLoRA - except FSDP2's parameter sharding breaks on quantized weights. After wrestling with RuntimeError: Cannot flatten integer dtype tensors and discovering why Params4bit objects can't become DTensors, I found the solution: selective sharding with ignored_params.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-12-15T00:00:00-06:00" itemprop="datePublished">
+        Dec 15, 2025
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      12 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#unsloth">unsloth</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#backpropagation">backpropagation</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2025-12-15-unsloth-fsdp2-qlora.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2025-12-15-unsloth-fsdp2-qlora.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2025-12-15-unsloth-fsdp2-qlora.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#Understanding-the-Collision">Understanding the Collision </a></li>
+<li class="toc-entry toc-h2"><a href="#The-Key-Insight">The Key Insight </a></li>
+<li class="toc-entry toc-h2"><a href="#Putting-It-All-Together">Putting It All Together </a></li>
+<li class="toc-entry toc-h2"><a href="#The-Graveyard-of-Failed-Attempts">The Graveyard of Failed Attempts </a></li>
+<li class="toc-entry toc-h2"><a href="#What-We-Learned">What We Learned </a></li>
+<li class="toc-entry toc-h2"><a href="#What-We-Built">What We Built </a></li>
+<li class="toc-entry toc-h2"><a href="#The-Bigger-Picture">The Bigger Picture </a></li>
+<li class="toc-entry toc-h2"><a href="#Next-Steps">Next Steps </a></li>
+<li class="toc-entry toc-h2"><a href="#Final-Thoughts">Final Thoughts </a></li>
+<li class="toc-entry toc-h2"><a href="#Acknowlegements">Acknowlegements </a></li>
+<li class="toc-entry toc-h2"><a href="#Resources">Resources </a></li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2025-12-15-unsloth-fsdp2-qlora.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Understanding-the-Collision">
+<a class="anchor" href="#Understanding-the-Collision" aria-hidden="true"><span class="octicon octicon-link"></span></a>Understanding the Collision<a class="anchor-link" href="#Understanding-the-Collision"> </a>
+</h2>
+<p><strong>What does a GPU see when it looks at a model parameter?</strong></p>
+<p>A parameter is just a tensor - a contiguous block of numbers in memory. A 4096×4096 weight matrix in float16 takes 32MB. Simple.</p>
+
+<pre><code>[float16, float16, float16, ... ] → 32MB on GPU</code></pre>
+<p><strong>What does FSDP2 do?</strong></p>
+<p>FSDP2's job is elegant: take that 32MB tensor and split it across 2 GPUs. Each GPU holds 16MB. When you need the full tensor for computation, GPUs talk to each other (all-gather), compute, then throw away the extra copy.</p>
+
+<pre><code>GPU 0: [first half...]  → 16MB
+GPU 1: [second half...] → 16MB</code></pre>
+<p>To do this, FSDP2 must convert your tensor into a DTensor (Distributed Tensor) - a tensor that knows it's sharded and knows how to reassemble itself.</p>
+<p><strong>What does QLoRA do?</strong></p>
+<p>QLoRA compresses that 32MB tensor down to ~4MB using 4-bit quantization. But here's the catch: you can't just store 4-bit numbers directly. You need metadata to decode them back to usable values.</p>
+
+<pre><code>Params4bit:
+  - data: [4-bit packed values...] → 4MB
+  - quant_state: {scales, zeros, quant_type="nf4", blocksize=64, ...}</code></pre>
+<p>The quant_state is a Python dictionary hanging off the tensor. It's not a tensor itself - it's metadata that tells bitsandbytes how to dequantize.</p>
+<p><strong>The Collision</strong></p>
+<p>Now watch what happens when FSDP2 meets Params4bit:</p>
+<ol>
+<li>FSDP2 sees a parameter, tries to convert it to DTensor</li>
+<li>It inspects the tensor... but this isn't a normal tensor</li>
+<li>It has custom <strong>new</strong> and <strong>init</strong> methods</li>
+<li>It has this quant_state thing attached to it</li>
+<li>FSDP2 doesn't know how to shard a Python dictionary</li>
+</ol>
+
+<pre><code>RuntimeError: Cannot flatten integer dtype tensors</code></pre>
+<p>FSDP2 is asking: "How do I split this in half?"</p>
+<p>And Params4bit is saying: "I'm not just a tensor. I'm a tensor plus a decoder ring. You can't split the decoder ring."</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="The-Key-Insight">
+<a class="anchor" href="#The-Key-Insight" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Key Insight<a class="anchor-link" href="#The-Key-Insight"> </a>
+</h2>
+<p>Let's think about what actually needs to be sharded.</p>
+<p>In QLoRA training, you have two kinds of parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Size</th>
+<th>Trainable</th>
+<th>Needs gradients</th>
+<th>Needs optimizer state</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Base weights (4-bit)</td>
+<td>~4GB</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>LoRA adapters (fp16)</td>
+<td>~200MB</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>The frozen 4-bit base weights never change. They're just used for forward passes. The LoRA adapters are tiny but they accumulate gradients and optimizer states.</p>
+<p>So here's the insight: we don't need to shard the problematic Params4bit at all. We only need to shard the LoRA adapters which are regular fp16 tensors that FSDP2 handles perfectly.</p>
+
+<pre><code>Base weights:  Replicate on both GPUs (4GB each - acceptable)
+LoRA adapters: Shard with FSDP2 (100MB each - sharded)</code></pre>
+<p>Here's what that looks like in practice:</p>
+
+<pre><code>from bitsandbytes.nn import Params4bit
+from torch.distributed.fsdp import fully_shard
+
+# Collect all the quantized parameters we want FSDP2 to ignore
+ignored_params = {p for p in model.parameters() if isinstance(p, Params4bit)}
+
+# Apply FSDP2 to each transformer layer, skipping quantized weights
+for layer in model.base_model.model.model.layers:
+    fully_shard(layer, ignored_params=ignored_params)</code></pre>
+<p>That's it. Two lines that unlock FSDP2 + QLoRA.</p>
+<p><strong>What's happening here?</strong></p>
+<ol>
+<li>We identify every Params4bit in the model</li>
+<li>We pass them to ignored_params - telling FSDP2 "don't touch these"</li>
+<li>FSDP2 shards everything else (the LoRA adapters)</li>
+</ol>
+<p>The quantized weights stay intact with their quant_state metadata. FSDP2 never tries to convert them to DTensors. No collision.</p>
+<p>But there's a catch. Run this code and you'll hit:</p>
+
+<pre><code>ValueError: Your model contains `DTensor` parameters, 
+which is incompatible with DDP.</code></pre>
+<p>The Trainer sees your distributed setup and tries to wrap your already-sharded model with DDP. We need to tell it to back off:</p>
+
+<pre><code>class FSDP2Trainer(SFTTrainer):
+    def _wrap_model(self, model, training=True, dataloader=None):
+        return model  # Already wrapped, skip
+
+trainer = FSDP2Trainer(...)
+trainer.accelerator.prepare_model = lambda model, **kwargs: model</code></pre>
+<p>Run it. Watch both GPUs light up. Check the loss going down.</p>
+
+<pre><code>torchrun --nproc_per_node=2 train_manual_fsdp2.py</code></pre>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Putting-It-All-Together">
+<a class="anchor" href="#Putting-It-All-Together" aria-hidden="true"><span class="octicon octicon-link"></span></a>Putting It All Together<a class="anchor-link" href="#Putting-It-All-Together"> </a>
+</h2>
+<p>Here's the complete script that trains Llama 3.1 8B with FSDP2 + QLoRA on 2 GPUs:</p>
+
+<pre><code>import os
+import torch
+
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True,"\
+    "roundup_power2_divisions:[32:256,64:128,256:64,&gt;:32]"
+
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+from peft import get_peft_model, LoraConfig, TaskType
+from datasets import load_dataset
+from trl import SFTTrainer, SFTConfig
+from bitsandbytes.nn import Params4bit
+from torch.distributed.fsdp import fully_shard
+
+import torch.distributed as dist
+dist.init_process_group(backend="nccl")
+local_rank = int(os.environ.get("LOCAL_RANK", 0))
+print(f"Rank {dist.get_rank()}: Loading model on GPU {local_rank}")
+torch.cuda.set_device(local_rank)
+
+
+max_seq_length = 2048
+torch.set_default_dtype(torch.float16)
+model_name = "unsloth/meta-Llama-3.1-8B-Instruct-bnb-4bit"
+dtype = torch.float16
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit              = True,
+    bnb_4bit_use_double_quant = True,
+    bnb_4bit_quant_type       = "nf4",
+    bnb_4bit_compute_dtype    = dtype,
+    bnb_4bit_quant_storage    = dtype,  # Key for FSDP compatibility!
+)
+
+# Load model - accelerator handles device placement
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    attn_implementation = "sdpa",
+    quantization_config = bnb_config,
+    # device_map = {"": int(os.environ.get("LOCAL_RANK", 0))},
+    # device_map = {"": torch.cuda.current_device()},
+    device_map = {"": local_rank},
+)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer.padding_side = "right"
+
+lora_config = LoraConfig(
+    r = 64,
+    lora_alpha = 128,
+    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                      "gate_proj", "up_proj", "down_proj"],
+    lora_dropout = 0,
+    bias = "none",
+    task_type = TaskType.CAUSAL_LM,
+)
+
+# Apply LoRA
+model = get_peft_model(model, lora_config)
+ignored_params = {p for p in model.parameters() if isinstance(p, Params4bit)}
+
+# Set requires_grad
+with torch.no_grad():
+    for name, param in model.named_parameters():
+        if ".lora_A." in name or ".lora_B." in name:
+            param.requires_grad_(True)
+        else:
+            param.requires_grad_(False)
+
+model.gradient_checkpointing_enable()
+model.enable_input_require_grads()
+
+# Load dataset
+url = "https://huggingface.co/datasets/laion/OIG/resolve/main/unified_chip2.jsonl"
+dataset = load_dataset("json", data_files = {"train" : url}, split = "train[:10%]")
+
+for layer in model.base_model.model.model.layers:
+    fully_shard(layer, ignored_params=ignored_params)
+
+class FSDP2Trainer(SFTTrainer):
+    def _wrap_model(self, model, training=True, dataloader=None):
+        # Skip wrapping - we've already applied FSDP2 manually
+        return model
+
+# Use SFTTrainer - it integrates with accelerate
+trainer = FSDP2Trainer(
+    model = model,
+    train_dataset = dataset,
+    processing_class = tokenizer,
+    args = SFTConfig(
+        per_device_train_batch_size = 2,
+        gradient_accumulation_steps = 4,
+        warmup_steps = 1,
+        max_steps = 10,
+        logging_steps = 1,
+        output_dir = "outputs",
+        seed = 3407,
+        max_length = max_seq_length,
+        fp16 = True,
+        report_to = "none",
+        dataset_num_proc = 4,
+        fsdp="",
+        ddp_backend=None,
+        save_strategy="no",
+        ddp_find_unused_parameters = False,
+    ),
+)
+
+trainer.accelerator.prepare_model = lambda model, **kwargs: model
+trainer.train()
+
+print(f"Rank {int(os.environ.get('RANK', 0))}: Using GPU {torch.cuda.current_device()}")
+print(f"Peak memory: {torch.cuda.max_memory_allocated() / 1e9:.2f} GB")</code></pre>
+<p>Let's understand the key decisions:</p>
+<ol>
+<li><code>bnb_4bit_quant_storage=torch.float16</code></li>
+</ol>
+<p>This is subtle but critical. By default, bitsandbytes stores quantized weights as uint8. But FSDP2 expects floating point dtypes. This flag tells bitsandbytes to store the packed 4-bit values in float16 containers.</p>
+<ol>
+<li><code>device_map={"": local_rank}</code></li>
+</ol>
+<p>Each process must load the model on its assigned GPU. LOCAL_RANK is set by torchrun - it's 0 for the first process, 1 for the second.</p>
+<ol>
+<li><code>ignored_params collected before fully_shard()</code></li>
+</ol>
+<p>We collect all Params4bit parameters upfront, then pass the same set to every layer. FSDP2 will replicate these (not shard them).</p>
+<ol>
+<li><code>The monkey-patch: trainer.accelerator.prepare_model = lambda model, **kwargs: model</code></li>
+</ol>
+<p>The Trainer's accelerator tries to wrap the model for distributed training. But we've already applied FSDP2. This lambda tells it "the model is already prepared, return it unchanged."</p>
+<p>Launch it:</p>
+
+<pre><code>torchrun --nproc_per_node=2 train.py</code></pre>
+<p>You'll see both GPUs working:</p>
+
+<pre><code>{'loss': 2.2167, 'learning_rate': 2e-05, 'epoch': 0.0}
+{'loss': 2.0854, 'learning_rate': 1.78e-05, 'epoch': 0.0}
+{'loss': 1.8448, 'learning_rate': 1.56e-05, 'epoch': 0.0}
+...
+{'loss': 1.4309, 'learning_rate': 2.22e-06, 'epoch': 0.01}</code></pre>
+<p>Memory breakdown per GPU:</p>
+<ol>
+<li>Base model (4-bit, replicated): ~4GB</li>
+<li>LoRA adapters (sharded): ~100MB per GPU</li>
+<li>Gradients (sharded): ~100MB per GPU</li>
+<li>Optimizer states (sharded): ~400MB per GPU</li>
+<li>Activations (gradient checkpointing): ~2-3GB</li>
+</ol>
+<p>Total: ~7-8GB per GPU - well within 16GB T4 limits.</p>
+<p>What features did we enable?</p>
+<ul>
+<li>Mixed precision - fp16 training with 4-bit base </li>
+<li>Gradient checkpointing - recompute activations to save memory </li>
+<li>Parameter sharding - LoRA adapters distributed across GPUs </li>
+<li>Selective replication - quantized weights replicated (frozen anyway)</li>
+</ul>
+<p>CPU offloading isn't enabled here. Why? The quantized base weights require CUDA kernels, they can't run on CPU.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="The-Graveyard-of-Failed-Attempts">
+<a class="anchor" href="#The-Graveyard-of-Failed-Attempts" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Graveyard of Failed Attempts<a class="anchor-link" href="#The-Graveyard-of-Failed-Attempts"> </a>
+</h2>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p>The solution above looks clean. It wasn't. Here's the path that got us there - every dead end taught us something about how these systems actually work.</p>
+<p><strong>Attempt #1: Just use Accelerate's FSDP2 plugin</strong></p>
+<p>The obvious first try:</p>
+
+<pre><code>from accelerate import Accelerator, FullyShardedDataParallelPlugin
+
+fsdp_plugin = FullyShardedDataParallelPlugin(fsdp_version=2)
+accelerator = Accelerator(fsdp_plugin=fsdp_plugin)</code></pre>
+<p>Result: ValueError: Cannot flatten integer dtype tensors</p>
+<p>Accelerate's plugin doesn't know about Params4bit. It passes every parameter to FSDP2's sharding machinery. When FSDP2 tries to flatten the quantized weight tensor into a DTensor, it chokes on the non-standard type.</p>
+<p><strong>Attempt #2: Apply fully_shard() to every layer</strong></p>
+<p>Maybe if we wrap each layer manually?</p>
+
+<pre><code>for layer in model.base_model.model.model.layers:
+    fully_shard(layer)</code></pre>
+<p>Result: Same error. Params4bit still gets sharded.</p>
+
+<pre><code>fully_shard(layer)
+    ↓
+Inspects all parameters in layer
+    ↓
+Finds: q_proj.weight (Params4bit), lora_A.weight (Tensor), lora_B.weight (Tensor)
+    ↓
+Tries to shard ALL of them
+    ↓
+Params4bit can't become DTensor</code></pre>
+<p><strong>Attempt #3: Override _wrap_model() in Trainer</strong></p>
+<p>We discovered FSDP2's ignored_params and applied it. Training started! Then:</p>
+
+<pre><code>ValueError: Your model contains `DTensor` parameters, 
+which is incompatible with DDP.</code></pre>
+<p>The traceback pointed to accelerator.prepare():</p>
+
+<pre><code># Inside transformers/trainer.py line 2480
+model, self.optimizer = self.accelerator.prepare(self.model, self.optimizer)</code></pre>
+<p>We overrode _wrap_model(), but the Trainer has another place where it wraps the model. Accelerate's prepare() sees DTensors (from our FSDP2 sharding) and complains.</p>
+<p>Result: Monkey-patch prepare_model too:</p>
+
+<pre><code>trainer.accelerator.prepare_model = lambda model, **kwargs: model</code></pre>
+<p>Attempt #5: Enable CPU offloading</p>
+<p>The challenge requires showcasing offloading. Let's add it:</p>
+
+<pre><code>from torch.distributed.fsdp import CPUOffloadPolicy
+
+fully_shard(layer, 
+    ignored_params=ignored_params,
+    offload_policy=CPUOffloadPolicy(pin_memory=True))</code></pre>
+<p>Here's what happens during forward pass with offloading:</p>
+<ol>
+<li>LoRA adapter A (on CPU) → move to GPU</li>
+<li>Base weight (on GPU, quantized) → dequantize</li>
+<li>Compute: output = Base @ input + B @ (A @ input)</li>
+<li>LoRA adapter A → move back to CPU</li>
+</ol>
+<p>Step 2 is the problem. The quantized base weight can't move to CPU - bitsandbytes dequantization requires CUDA kernels. So you have LoRA on CPU trying to interact with a base that must stay on GPU.</p>
+<p>We tried pin_memory=False. Same error. The fundamental issue: CPU offloading assumes homogeneous parameters. Mixed precision with quantized weights breaks that assumption.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="What-We-Learned">
+<a class="anchor" href="#What-We-Learned" aria-hidden="true"><span class="octicon octicon-link"></span></a>What We Learned<a class="anchor-link" href="#What-We-Learned"> </a>
+</h2>
+<ol>
+<li>
+<p>FSDP2 is parameter-centric, FSDP1 is module-centric. This seemingly small API difference has huge implications for non-standard parameter types.</p>
+</li>
+<li>
+<p>Params4bit isn't just a tensor. It's a tensor + metadata. Any system that manipulates tensors directly (FSDP2's DTensor conversion) will break.</p>
+</li>
+<li>
+<p>ignored_params is the escape hatch. When you have parameters that can't be sharded, tell FSDP2 to leave them alone.</p>
+</li>
+<li>
+<p>Trainers have opinions. HuggingFace Trainer assumes it controls distribution. When you do manual FSDP, you must intercept multiple wrapping points.</p>
+</li>
+<li>
+<p>Not all features compose. CPU offloading + 4-bit quantization = conflict. Know when to stop stacking optimizations.</p>
+</li>
+</ol>
+<p>The best debugging happens when you understand what each layer of abstraction is doing. We had to read:</p>
+<ol>
+<li>FSDP2's fully_shard() source</li>
+<li>FSDPParam._init_sharded_param() where DTensor conversion happens</li>
+<li>Accelerate's prepare_model() where the second wrapping occurs</li>
+</ol>
+<p>Read the source. Print intermediate values. Build mental models. That's how you debug systems that weren't designed to work together.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="What-We-Built">
+<a class="anchor" href="#What-We-Built" aria-hidden="true"><span class="octicon octicon-link"></span></a>What We Built<a class="anchor-link" href="#What-We-Built"> </a>
+</h2>
+<p>We trained Llama 3.1 8B on 2 consumer GPUs using FSDP2 + QLoRA. Things that "shouldn't work together" now do:</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FSDP2 parameter sharding</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>4-bit QLoRA quantization</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>HuggingFace Trainer compatibility</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>Mixed precision (fp16)</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>Gradient checkpointing</td>
+<td>Done</td>
+</tr>
+<tr>
+<td>Multi-GPU training</td>
+<td>Done</td>
+</tr>
+</tbody>
+</table>
+<p>Memory per GPU: ~7-8GB (down from 32GB+ for full precision)</p>
+<p>The key insight was small: don't shard what can't be sharded. Use ignored_params to let quantized weights replicate while LoRA adapters distribute.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="The-Bigger-Picture">
+<a class="anchor" href="#The-Bigger-Picture" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Bigger Picture<a class="anchor-link" href="#The-Bigger-Picture"> </a>
+</h2>
+<p>This exercise reveals something important about the current state of ML infrastructure.</p>
+<p>We have extraordinary tools:</p>
+<ol>
+<li>FSDP2 for elegant distributed training</li>
+<li>QLoRA for memory-efficient fine-tuning</li>
+<li>HuggingFace for accessible model loading</li>
+<li>bitsandbytes for 4-bit quantization</li>
+</ol>
+<p>But these tools were built by different teams, at different times, with different assumptions. They don't always compose cleanly.</p>
+
+<pre><code>PyTorch team: "Parameters are tensors"
+bitsandbytes: "Parameters are tensors + quantization metadata"
+FSDP2: "I'll shard any tensor"
+bitsandbytes: "Not mine you won't"</code></pre>
+<p>The gap between "works in isolation" and "works together" is where real engineering happens. You read source code. You understand assumptions. You find the escape hatches.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Next-Steps">
+<a class="anchor" href="#Next-Steps" aria-hidden="true"><span class="octicon octicon-link"></span></a>Next Steps<a class="anchor-link" href="#Next-Steps"> </a>
+</h2>
+<p>If you're continuing this work, here are paths worth exploring:</p>
+<ol>
+<li><code>torch.ao quantization instead of bitsandbytes</code></li>
+</ol>
+<p>PyTorch's native quantization (torchao) was designed with composability in mind. It might integrate cleaner with FSDP2:</p>
+
+<pre><code>from torchao.quantization import quantize_, int4_weight_only
+quantize_(model, int4_weight_only())</code></pre>
+<p>Trade-off: Potentially slower kernels than bitsandbytes' hand-tuned CUDA.</p>
+<ol>
+<li><code>Proper checkpoint saving</code></li>
+</ol>
+<p>Our solution skipped saving because DTensors can't serialize through PEFT's save_pretrained(). A proper solution would:</p>
+<p>Gather sharded parameters before saving
+Or use FSDP2's native state dict helpers</p>
+<ol>
+<li><code>Pipeline parallelism with zero-bubble scheduling</code></li>
+</ol>
+<p>The original challenge mentioned this as an alternative path. Instead of sharding parameters, you shard the model vertically - different layers on different GPUs:</p>
+
+<pre><code>from torch.distributed.pipelining import ScheduleInterleavedZeroBubble
+This avoids the Params4bit sharding problem entirely by keeping whole layers intact.</code></pre>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Final-Thoughts">
+<a class="anchor" href="#Final-Thoughts" aria-hidden="true"><span class="octicon octicon-link"></span></a>Final Thoughts<a class="anchor-link" href="#Final-Thoughts"> </a>
+</h2>
+<p>The most valuable skill in ML engineering isn't knowing every API. It's knowing how to figure things out when APIs don't work as documented.</p>
+<p>This project required:</p>
+<ol>
+<li>Reading PyTorch FSDP2 source code</li>
+<li>Reading Accelerate's model preparation logic</li>
+<li>Building mental models of parameter sharding</li>
+<li>Testing hypotheses systematically</li>
+</ol>
+<p>None of that was in any tutorial. It came from treating errors as clues, not roadblocks.</p>
+<p>You have everything you need to solve problems like this. Start with working code. Break it intentionally. Understand why it broke. Fix it. Repeat.</p>
+<p>The next "impossible" integration is waiting for someone to find the ignored_params equivalent. Maybe that's you.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Acknowlegements">
+<a class="anchor" href="#Acknowlegements" aria-hidden="true"><span class="octicon octicon-link"></span></a>Acknowlegements<a class="anchor-link" href="#Acknowlegements"> </a>
+</h2>
+<p>This work was inspired by <a href="https://colab.research.google.com/drive/1JqKqA1XWeLHvnYAc0wzrR4JBCnq43HyH">Unsloth's Challenge B</a> make QLoRA work with FSDP2. What started as a competition challenge became a deep learning journey through distributed systems, quantization internals, and the messy reality of composing ML infrastructure.</p>
+<p>The Unsloth team's challenge wasn't just about getting code to run. It forced us to understand why things break.
+These aren't questions you encounter in tutorials. They're the questions that build real understanding.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Resources">
+<a class="anchor" href="#Resources" aria-hidden="true"><span class="octicon octicon-link"></span></a>Resources<a class="anchor-link" href="#Resources"> </a>
+</h2>
+<ul>
+<li><a href="https://github.com/numb3r33/unsloth-challenges/blob/main/Unsloth_Challenge_B.ipynb">Complete script</a></li>
+<li><a href="https://pytorch.org/docs/stable/distributed.fsdp.fully_shard.html">PyTorch FSDP2 docs</a></li>
+<li><a href="https://github.com/huggingface/accelerate/pull/3394">Accelerate PR #3394</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/unsloth/backpropagation/2025/12/15/unsloth-fsdp2-qlora.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
