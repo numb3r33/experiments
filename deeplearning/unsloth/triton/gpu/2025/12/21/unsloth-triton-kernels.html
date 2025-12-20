@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="twitter:card" content="summary_large_image" /><!-- Begin Jekyll SEO tag v2.6.1 -->
+<title>From Zero to 1.55x: Writing My First Triton Kernel for NF4 Dequantization | experiments</title>
+<meta name="generator" content="Jekyll v4.0.0" />
+<meta property="og:title" content="From Zero to 1.55x: Writing My First Triton Kernel for NF4 Dequantization" />
+<meta name="author" content="Abhishek Sharma" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="TL;DR. Wrote my first GPU kernel to dequantize NF4 weights in Triton. Started knowing nothing about program_id, bit manipulation, or double quantization. Ended with a 1.55x speedup over Unsloth’s implementation. Here’s every bug I hit, every wall I ran into, and how understanding the fundamentals made it click." />
+<meta property="og:description" content="TL;DR. Wrote my first GPU kernel to dequantize NF4 weights in Triton. Started knowing nothing about program_id, bit manipulation, or double quantization. Ended with a 1.55x speedup over Unsloth’s implementation. Here’s every bug I hit, every wall I ran into, and how understanding the fundamentals made it click." />
+<link rel="canonical" href="https://numb3r33.github.io/experiments/deeplearning/unsloth/triton/gpu/2025/12/21/unsloth-triton-kernels.html" />
+<meta property="og:url" content="https://numb3r33.github.io/experiments/deeplearning/unsloth/triton/gpu/2025/12/21/unsloth-triton-kernels.html" />
+<meta property="og:site_name" content="experiments" />
+<meta property="og:image" content="https://numb3r33.github.io/experiments/images/unsloth_triton_kernels.png" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2025-12-21T00:00:00-06:00" />
+<script type="application/ld+json">
+{"headline":"From Zero to 1.55x: Writing My First Triton Kernel for NF4 Dequantization","url":"https://numb3r33.github.io/experiments/deeplearning/unsloth/triton/gpu/2025/12/21/unsloth-triton-kernels.html","dateModified":"2025-12-21T00:00:00-06:00","datePublished":"2025-12-21T00:00:00-06:00","image":"https://numb3r33.github.io/experiments/images/unsloth_triton_kernels.png","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://numb3r33.github.io/experiments/deeplearning/unsloth/triton/gpu/2025/12/21/unsloth-triton-kernels.html"},"author":{"@type":"Person","name":"Abhishek Sharma"},"description":"TL;DR. Wrote my first GPU kernel to dequantize NF4 weights in Triton. Started knowing nothing about program_id, bit manipulation, or double quantization. Ended with a 1.55x speedup over Unsloth’s implementation. Here’s every bug I hit, every wall I ran into, and how understanding the fundamentals made it click.","@context":"https://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/experiments/assets/css/style.css"><link type="application/atom+xml" rel="alternate" href="https://numb3r33.github.io/experiments/feed.xml" title="experiments" /><link rel="shortcut icon" type="image/x-icon" href="/experiments/images/favicon.ico"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Primer/15.2.0/primer.css" integrity="sha512-xTz2ys4coGAOz8vuV1NcQBkgVmKhsSEtjbqyMJbBHRplFuvKIUo6xhLHpAyPt9mfR6twHJgn9OgVLuqOvjeBhg==" crossorigin="anonymous" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.14.0/css/all.min.css" integrity="sha512-1PKOgIY59xJ8Co8+NE6FZ+LOAZKjy+KY8iq0G4B3CyeY6wYHN3yt9PW0XpSriVlkMXe40PTKnXrLnZ9+fkDaog==" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.css" integrity="sha512-h7nl+xz8wgDlNM4NqKEM4F1NkIRS17M9+uJwIGwuo8vGqIl4BhuCKdxjWEINm+xyrUjNCnK5dCrhM0sj+wTIXw==" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/katex.min.js" integrity="sha512-/CMIhXiDA3m2c9kzRyd97MTb3MC6OVnx4TElQ7fkkoRghwDf6gi41gaT1PwF270W6+J60uTmwgeRpNpJdRV6sg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.12.0/contrib/auto-render.min.js" integrity="sha512-Do7uJAaHZm5OLrIv/yN4w0iG1dbu01kzdMNnFfu/mAqgUk6Nniv2JYHcwH+cNwjqgLcqcuBBk+JRvprLVI8azg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js" integrity="sha512-0doc9hKxR3PYwso42RD1p5ySZpzzuDiOwMrdCEh2WdJZCjcmFKc/wEnL+z8fBQrnHoiNWbo+3fiGkOYXBdQp4A==" crossorigin="anonymous"></script>
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        renderMathInElement( document.body, {
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "[%", right: "%]", display: true},
+            {left: "$", right: "$", display: false}
+        ]}
+        );
+    });
+    </script>
+
+
+<script>
+function wrap_img(fn) {
+    if (document.attachEvent ? document.readyState === "complete" : document.readyState !== "loading") {
+        var elements = document.querySelectorAll(".post img");
+        Array.prototype.forEach.call(elements, function(el, i) {
+            if (el.getAttribute("title") && (el.className != "emoji")) {
+                const caption = document.createElement('figcaption');
+                var node = document.createTextNode(el.getAttribute("title"));
+                caption.appendChild(node);
+                const wrapper = document.createElement('figure');
+                wrapper.className = 'image';
+                el.parentNode.insertBefore(wrapper, el);
+                el.parentNode.removeChild(el);
+                wrapper.appendChild(el);
+                wrapper.appendChild(caption);
+            }
+        });
+    } else { document.addEventListener('DOMContentLoaded', fn); }
+}
+window.onload = wrap_img;
+</script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+    // add link icon to anchor tags
+    var elem = document.querySelectorAll(".anchor-link")
+    elem.forEach(e => (e.innerHTML = '<i class="fas fa-link fa-xs"></i>'));
+    });
+</script>
+</head>
+<body><header class="site-header">
+
+  <div class="wrapper"><a class="site-title" rel="author" href="/experiments/">experiments</a><nav class="site-nav">
+        <input type="checkbox" id="nav-trigger" class="nav-trigger" />
+        <label for="nav-trigger">
+          <span class="menu-icon">
+            <svg viewBox="0 0 18 15" width="18px" height="15px">
+              <path d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.032C17.335,0,18,0.665,18,1.484L18,1.484z M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.032C17.335,6.031,18,6.696,18,7.516L18,7.516z M18,13.516C18,14.335,17.335,15,16.516,15H1.484 C0.665,15,0,14.335,0,13.516l0,0c0-0.82,0.665-1.483,1.484-1.483h15.032C17.335,12.031,18,12.695,18,13.516L18,13.516z"/>
+            </svg>
+          </span>
+        </label>
+
+        <div class="trigger"><a class="page-link" href="/experiments/about/">About Me</a><a class="page-link" href="/experiments/search/">Search</a><a class="page-link" href="/experiments/categories/">Tags</a></div>
+      </nav></div>
+</header>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        <article class="post h-entry" itemscope itemtype="http://schema.org/BlogPosting">
+
+  <header class="post-header">
+    <h1 class="post-title p-name" itemprop="name headline">From Zero to 1.55x: Writing My First Triton Kernel for NF4 Dequantization</h1><p class="page-description">TL;DR. Wrote my first GPU kernel to dequantize NF4 weights in Triton. Started knowing nothing about program_id, bit manipulation, or double quantization. Ended with a 1.55x speedup over Unsloth's implementation. Here's every bug I hit, every wall I ran into, and how understanding the fundamentals made it click.</p><p class="post-meta post-meta-title"><time class="dt-published" datetime="2025-12-21T00:00:00-06:00" itemprop="datePublished">
+        Dec 21, 2025
+      </time>• 
+          <span itemprop="author" itemscope itemtype="http://schema.org/Person">
+            <span class="p-author h-card" itemprop="name">Abhishek Sharma</span></span>
+       • <span class="read-time" title="Estimated read time">
+    
+    
+      14 min read
+    
+</span></p>
+
+    
+      <p class="category-tags"><i class="fas fa-tags category-tags-icon"></i></i> 
+      
+        <a class="category-tags-link" href="/experiments/categories/#deeplearning">deeplearning</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#unsloth">unsloth</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#triton">triton</a>
+        &nbsp;
+      
+        <a class="category-tags-link" href="/experiments/categories/#gpu">gpu</a>
+        
+      
+      </p>
+    
+
+    
+      
+        <div class="pb-5 d-flex flex-justify-center">
+          <div class="px-2">
+
+    <a href="https://github.com/numb3r33/experiments/tree/master/_notebooks/2025-12-21-unsloth-triton-kernels.ipynb" role="button" target="_blank">
+<img class="notebook-badge-image" src="/experiments/assets/badges/github.svg" alt="View On GitHub">
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://mybinder.org/v2/gh/numb3r33/experiments/master?filepath=_notebooks%2F2025-12-21-unsloth-triton-kernels.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/binder.svg" alt="Open In Binder"/>
+    </a>
+</div>
+
+          <div class="px-2">
+    <a href="https://colab.research.google.com/github/numb3r33/experiments/blob/master/_notebooks/2025-12-21-unsloth-triton-kernels.ipynb" target="_blank">
+        <img class="notebook-badge-image" src="/experiments/assets/badges/colab.svg" alt="Open In Colab"/>
+    </a>
+</div>
+          
+        </div>
+      </header>
+
+  <div class="post-content e-content" itemprop="articleBody">
+    <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#The-Challenge">The Challenge </a></li>
+<li class="toc-entry toc-h2"><a href="#A)-Convert-nf4-to-Triton.-[Difficulty:-Hard]-[Max-points:-14]">A) Convert nf4 to Triton. [Difficulty: Hard] [Max points: 14] </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#TEST-IT-BELOW:">TEST IT BELOW: </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#test_dequantize(your_dequantize_nf4)">test_dequantize(your_dequantize_nf4) </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#CALCULATE-SPEEDUP-(hopefully-1.15x-faster-or-more)">CALCULATE SPEEDUP (hopefully 1.15x faster or more) </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#test_dequantize(unsloth_dequantize)-/-test_dequantize(your_dequantize_nf4)">test_dequantize(unsloth_dequantize) / test_dequantize(your_dequantize_nf4) </a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#Demystifying-NF4-Dequantization">Demystifying NF4 Dequantization </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Understanding-NF4-Dequantization-with-a-Single-Number">Understanding NF4 Dequantization with a Single Number </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#Writing-My-First-Triton-Kernel">Writing My First Triton Kernel </a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#Attempt-#1:-The-Naive-Approach">Attempt #1: The Naive Approach </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#Version-1:-"It-compiles!-Ship-it!"">Version 1: &quot;It compiles! Ship it!&quot; </a></li>
+<li class="toc-entry toc-h2"><a href="#Version-2:-"Fixed-the-packing!"">Version 2: &quot;Fixed the packing!&quot; </a></li>
+<li class="toc-entry toc-h2"><a href="#Version-3:-"The-absmax-mystery"">Version 3: &quot;The absmax mystery&quot; </a></li>
+<li class="toc-entry toc-h2"><a href="#Version-4:-"The-state2-revelation"">Version 4: &quot;The state2 revelation&quot; </a></li>
+<li class="toc-entry toc-h2"><a href="#Version-5:-"So-close!-Only-7-errors..."">Version 5: &quot;So close! Only 7 errors...&quot; </a></li>
+<li class="toc-entry toc-h2"><a href="#Version-6:-"The-optimization-phase"">Version 6: &quot;The optimization phase&quot; </a></li>
+<li class="toc-entry toc-h2"><a href="#The-Final-Kernel:-A-Guided-Tour">The Final Kernel: A Guided Tour </a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#What-We-Learned">What We Learned </a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#Resources">Resources </a></li>
+</ul>
+</li>
+</ul><!--
+#################################################
+### THIS FILE WAS AUTOGENERATED! DO NOT EDIT! ###
+#################################################
+# file to edit: _notebooks/2025-12-21-unsloth-triton-kernels.ipynb
+-->
+
+<div class="container" id="notebook-container">
+        
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="The-Challenge">
+<a class="anchor" href="#The-Challenge" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Challenge<a class="anchor-link" href="#The-Challenge"> </a>
+</h2>
+<h2 id="A)-Convert-nf4-to-Triton.-[Difficulty:-Hard]-[Max-points:-14]">
+<a class="anchor" href="#A)-Convert-nf4-to-Triton.-%5BDifficulty:-Hard%5D-%5BMax-points:-14%5D" aria-hidden="true"><span class="octicon octicon-link"></span></a>A) Convert <code>nf4</code> to Triton. [Difficulty: Hard] [Max points: 14]<a class="anchor-link" href="#A)-Convert-nf4-to-Triton.-%5BDifficulty:-Hard%5D-%5BMax-points:-14%5D"> </a>
+</h2>
+<ol>
+<li>Goal: Convert a <code>nf4</code> quantized tensor into <code>fp16</code> or <code>bf16</code> into a <em>single</em> Triton kernel The double dequant of the <code>absmax</code> and weight forming must be done in 1 Triton kernel. Must work on Tesla T4.</li>
+<li>Must be faster than Unsloth's <code>fast_dequantize</code> by 1.15x or more, and not use large intermediate memory buffers.</li>
+<li>Must not use <code>torch.compile</code>, but can use <code>trace.enabled</code> to help on writing Triton kernels.</li>
+<li>Good material: <a href="https://github.com/unslothai/unsloth/blob/main/unsloth/kernels/utils.py#L128">Unsloth <code>fast_dequantize</code> function</a>, also <a href="https://github.com/bitsandbytes-foundation/bitsandbytes/blob/86b6c37a8ad448230cedb60753f63150b603a112/bitsandbytes/functional.py#L958">bitsandbytes <code>dequantize_blockwise</code></a>
+</li>
+<li>Use <code>test_dequantize_function</code> to test your implementation.</li>
+<li>No CUDA allowed. Custom CUDA inside of the Triton is allowed.</li>
+<li>Watch Tim's videos on Youtube: <a href="https://www.youtube.com/watch?v=2ETNONas068">8-bit Optimizers</a>
+</li>
+</ol>
+
+<pre><code>from bitsandbytes.nn import Linear4bit
+from transformers.activations import ACT2FN
+from unsloth.kernels.utils import fast_dequantize
+from peft.utils.integrations import dequantize_module_weight as peft_dequantize
+def unsloth_dequantize(weight):
+    return fast_dequantize(weight.weight, weight.weight.quant_state)
+
+def bnb_Linear4bit(hd, m, dtype = torch.float16):
+    return Linear4bit(
+        hd, m, bias = None,
+        compute_dtype       = dtype,
+        compress_statistics = True,
+        quant_type          = "nf4",
+    )
+
+# [NEW] as at 18th Feb 2025
+def assert_correct_bnb(weight, dtype):
+    assert(weight.weight.dtype == torch.uint8)
+    assert(weight.weight.quant_state.dtype == dtype)
+    assert(weight.weight.quant_state.absmax.dtype == torch.uint8)
+    assert(weight.weight.quant_state.code.dtype == torch.float32)
+    assert(weight.weight.quant_state.offset.dtype == torch.float32)
+    assert(weight.weight.quant_state.blocksize == 64)
+    assert(weight.weight.quant_state.state2.absmax.dtype == torch.float32)
+    assert(weight.weight.quant_state.state2.code.dtype == torch.float32)
+    assert(weight.weight.quant_state.state2.blocksize == 256)
+
+class MLP(nn.Module):
+    def __init__(self, hd = 4096, m = 14336, dtype = torch.float16):
+        super().__init__()
+        self.gate_proj = bnb_Linear4bit(hd, m, dtype = dtype).to("cuda")
+        self.up_proj   = bnb_Linear4bit(hd, m, dtype = dtype).to("cuda")
+        self.down_proj = bnb_Linear4bit(m, hd, dtype = dtype).to("cuda")
+        # [NEW] as at 18th Feb 2025
+        self.gate_proj.weight.quant_state.dtype = dtype
+        self.up_proj  .weight.quant_state.dtype = dtype
+        self.down_proj.weight.quant_state.dtype = dtype
+        self.act_fn = ACT2FN["silu"]
+    def forward(self, x):
+        return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+
+def mlp_forward(X, mlp, fx):
+    up   = X @ fx(mlp.  up_proj).t()
+    gate = X @ fx(mlp.gate_proj).t()
+    h = mlp.act_fn(gate) * up
+    down = h @ fx(mlp.down_proj).t()
+    return down
+
+def mlp_dequantize(X, mlp, fx):
+    a = fx(mlp.  up_proj).t(); torch.cuda.synchronize()
+    b = fx(mlp.gate_proj).t(); torch.cuda.synchronize()
+    c = fx(mlp.down_proj).t(); torch.cuda.synchronize()
+    return a, b, c
+
+def test_dequantize(dequantize_fx):
+    elapsed = 0
+    options = [
+        (2, 3333, 2048,  8192, 3407, torch.float16),
+        (5,  777, 1024,  4096, 3409, torch.bfloat16),
+        (3, 2048, 4096, 14336, 3408, torch.bfloat16),
+    ]
+    for (bsz, qlen, hd, m, seed, dt) in options:
+        set_seed(seed)
+        torch.set_default_dtype(torch.float32)
+        mlp = MLP(hd = hd, m = m, dtype = dt)
+        X = torch.randn((bsz, qlen, hd), device = "cuda", dtype = dt)
+        torch.cuda.synchronize()
+
+        # Warmup
+        for _ in range(2):
+            assert_same( mlp_forward(X, mlp, dequantize_fx), mlp(X), _F(_C()), dt)
+            # [NEW] as at 18th Feb 2025
+            assert_correct_bnb(mlp.  up_proj, dt)
+            assert_correct_bnb(mlp.gate_proj, dt)
+            assert_correct_bnb(mlp.down_proj, dt)
+            a, b, c = mlp_dequantize(X, mlp, dequantize_fx)
+            A, B, C = mlp_dequantize(X, mlp, unsloth_dequantize)
+            assert_same(a, A, _F(_C()), dt)
+            assert_same(b, B, _F(_C()), dt)
+            assert_same(c, C, _F(_C()), dt)
+
+        # Benchmarking
+        torch.cuda.synchronize()
+        start = time.time()
+        for _ in range(1000): mlp_dequantize(X, mlp, dequantize_fx)
+        elapsed += time.time() - start
+    return elapsed</code></pre>
+<p>For example, we can test our implementation via:</p>
+
+<pre><code>from unsloth.kernels.utils import fast_dequantize
+def unsloth_dequantize(weight):
+    return fast_dequantize(weight.weight, weight.weight.quant_state)
+test_dequantize(unsloth_dequantize)
+&gt; 5.320246934890747</code></pre>
+<p>The elapsed time for our implementation over 1000 trials is 5.38 seconds or so.</p>
+<p>PEFT also has one, which should be mostly identical to Unsloth's version, albeit slightly slower.</p>
+
+<pre><code>from peft.utils.integrations import dequantize_module_weight as peft_dequantize
+test_dequantize(peft_dequantize)
+
+&gt; 5.588372230529785</code></pre>
+<p>Write your Triton kernel below, and test it:```from triton import jit
+import triton
+import triton.language as tl</p>
+<p>@triton.jit
+def _your_dequantize_nf4_kernel():</p>
+
+<pre><code>### TRITON CODE GOES HERE
+return
+
+</code></pre>
+<p>def _your_dequantize_nf4(weight, quant_state):</p>
+
+<pre><code>### SETUP TRITON LAUNCH HERE
+return None
+
+</code></pre>
+<p>def your_dequantize_nf4(weight):
+    return _your_dequantize_nf4(weight.weight.data, weight.weight.quant_state)</p>
+
+<pre><code>
+</code></pre>
+<h3 id="TEST-IT-BELOW:">
+<a class="anchor" href="#TEST-IT-BELOW:" aria-hidden="true"><span class="octicon octicon-link"></span></a>TEST IT BELOW:<a class="anchor-link" href="#TEST-IT-BELOW:"> </a>
+</h3>
+<h1 id="test_dequantize(your_dequantize_nf4)">
+<a class="anchor" href="#test_dequantize(your_dequantize_nf4)" aria-hidden="true"><span class="octicon octicon-link"></span></a>test_dequantize(your_dequantize_nf4)<a class="anchor-link" href="#test_dequantize(your_dequantize_nf4)"> </a>
+</h1>
+<h3 id="CALCULATE-SPEEDUP-(hopefully-1.15x-faster-or-more)">
+<a class="anchor" href="#CALCULATE-SPEEDUP-(hopefully-1.15x-faster-or-more)" aria-hidden="true"><span class="octicon octicon-link"></span></a>CALCULATE SPEEDUP (hopefully 1.15x faster or more)<a class="anchor-link" href="#CALCULATE-SPEEDUP-(hopefully-1.15x-faster-or-more)"> </a>
+</h3>
+<h1 id="test_dequantize(unsloth_dequantize)-/-test_dequantize(your_dequantize_nf4)">
+<a class="anchor" href="#test_dequantize(unsloth_dequantize)-/-test_dequantize(your_dequantize_nf4)" aria-hidden="true"><span class="octicon octicon-link"></span></a>test_dequantize(unsloth_dequantize) / test_dequantize(your_dequantize_nf4)<a class="anchor-link" href="#test_dequantize(unsloth_dequantize)-/-test_dequantize(your_dequantize_nf4)"> </a>
+</h1>
+<pre><code>
+Marking Criteria for A) Max points = 14</code></pre>
+<p>if attemped_A:
+    A_score = 0
+    if single_triton_kernel: A_score += 3
+    speedup = old_time / new_time
+    if speedup &lt;= 1.00: A_score -= 3
+    if speedup &gt;= 1.05: A_score += 1
+    if speedup &gt;= 1.10: A_score += 2
+    if speedup &gt;= 1.15: A_score += 2
+    if kernel_works_in_torch_compile: A_score += 1
+    else: A_score -= 1
+    if custom_asm_works: A_score += 3
+    if uses_cache_eviction: A_score += 1
+    if tested_in_f16_and_bf16: A_score += 1
+    else: A_score -= 1
+    final_score += A_score
+else:
+    final_score += 0
+```</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Demystifying-NF4-Dequantization">
+<a class="anchor" href="#Demystifying-NF4-Dequantization" aria-hidden="true"><span class="octicon octicon-link"></span></a>Demystifying NF4 Dequantization<a class="anchor-link" href="#Demystifying-NF4-Dequantization"> </a>
+</h2>
+<h3 id="Understanding-NF4-Dequantization-with-a-Single-Number">
+<a class="anchor" href="#Understanding-NF4-Dequantization-with-a-Single-Number" aria-hidden="true"><span class="octicon octicon-link"></span></a>Understanding NF4 Dequantization with a Single Number<a class="anchor-link" href="#Understanding-NF4-Dequantization-with-a-Single-Number"> </a>
+</h3>
+<p>Let's say you want to store the weight value -0.347 in your neural network, but you only have 4 bits to work with.</p>
+<p><strong>Step 1: The Codebook</strong></p>
+<p>NF4 uses a lookup table of 16 carefully chosen values (since 4 bits = 2^4 = 16 possibilities):</p>
+
+<pre><code>Index:  0     1      2      3      4      5      6      7
+Value: -1.0  -0.70  -0.52  -0.39  -0.28  -0.18  -0.09   0.0
+
+Index:  8     9     10     11     12     13     14     15
+Value:  0.08  0.16   0.25   0.34   0.44   0.56   0.72   1.0</code></pre>
+<p>These values are normalized between -1 and 1. To store -0.347, we:</p>
+<p>Find the closest normalized value: index 3 = -0.39
+Store just the number 3 (4 bits!)</p>
+<p><strong>Step 2: The Scale Factor (absmax)</strong></p>
+<p>But wait, what if our actual weight was -3.47, not -0.347? We need a scale factor.</p>
+<p>Every 64 weights share one absmax (absolute maximum) value. Let's say absmax = 10.0.</p>
+<p>To dequantize:</p>
+
+<pre><code>dequantized_weight = codebook[3] × absmax
+                   = -0.39 × 10.0
+                   = -3.9</code></pre>
+<p>Close to our original -3.47!</p>
+<p><strong>Step 3: Double Quantization (the twist!)</strong></p>
+<p>Here's where it gets clever. Storing absmax as float32 for every 64 weights still takes a lot of memory. So NF4 quantizes the absmax values too!</p>
+<p>The absmax = 10.0 itself gets:</p>
+<ol>
+<li>Normalized and quantized to uint8 (256 possible values)</li>
+<li>Stored with its own scale factor (state2.absmax)</li>
+</ol>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<p><strong>Step 3 Extended: Double Dequantization with Real Numbers</strong></p>
+<p>Let's trace through dequantizing one weight using actual values from your kernel:</p>
+<p>Given:</p>
+<ul>
+<li>Quantized weight (4-bit): 5</li>
+<li>Quantized absmax (uint8): 200</li>
+<li>state2.absmax (float32): 2.0</li>
+<li>state2.code (lookup table for absmax)</li>
+<li>offset: 0.0218</li>
+</ul>
+<p>First, dequantize the absmax:</p>
+
+<pre><code># Look up the normalized absmax value
+state2.code[200] = 0.75
+
+# Scale it
+dequantized_absmax = 0.75 × 2.0 + 0.0218
+                   = 1.5 + 0.0218
+                   = 1.5218</code></pre>
+<p>Then, dequantize the weight:</p>
+
+<pre><code># Look up the NF4 value
+code[5] = 0.2
+
+# Scale by the dequantized absmax
+final_weight = 0.2 × 1.5218
+             = 0.304</code></pre>
+<p>The memory savings:</p>
+<ul>
+<li>Without double quantization: 64 weights + 1 float32 absmax = 32 bytes + 4 bytes</li>
+<li>With double quantization: 64 weights + 1 uint8 absmax = 32 bytes + 1 byte</li>
+<li>Savings: 75% less memory for scale factors</li>
+</ul>
+<p><strong>The offset mystery</strong>: You might wonder why there's an offset added. This shifts the quantization range to better match the distribution of absmax values—it's like centering your data before quantization.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Writing-My-First-Triton-Kernel">
+<a class="anchor" href="#Writing-My-First-Triton-Kernel" aria-hidden="true"><span class="octicon octicon-link"></span></a>Writing My First Triton Kernel<a class="anchor-link" href="#Writing-My-First-Triton-Kernel"> </a>
+</h2>
+<p><strong>The Challenge</strong></p>
+<p>Armed with an understanding of NF4 dequantization, I set out to write a Triton kernel that could:</p>
+<ol>
+<li>Dequantize millions of weights in parallel</li>
+<li>Beat Unsloth's implementation by 1.15x</li>
+<li>Do it all in a single kernel (no intermediate buffers)</li>
+</ol>
+<p>Easy, right?</p>
+<p>Narrator: It was not easy.</p>
+<h3 id="Attempt-#1:-The-Naive-Approach">
+<a class="anchor" href="#Attempt-#1:-The-Naive-Approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>Attempt #1: The Naive Approach<a class="anchor-link" href="#Attempt-#1:-The-Naive-Approach"> </a>
+</h3>
+<p>My first thought: "Triton is like NumPy but on GPU. I'll just translate the logic!"</p>
+
+<pre><code>@triton.jit
+def my_first_kernel(weight_ptr, output_ptr, ...):
+    # Load everything, dequantize, store
+    # How hard could it be?</code></pre>
+<p><strong>First wall</strong>: What's a program_id?</p>
+<p>In CPU programming, you write code that runs once. In GPU programming, you write code that runs thousands of times in parallel.</p>
+<p>Think of it like this:</p>
+<ul>
+<li>CPU: "Process all 1 million elements"</li>
+<li>GPU: "Hey, 4000 workers! Each of you process 256 elements"</li>
+</ul>
+<p>tl.program_id(0) tells each worker: "Which chunk am I responsible for?"</p>
+<p><code>pid = tl.program_id(0)  # Am I worker 0, 1, 2, ... ?</code></p>
+<p>If <code>pid=3</code> and <code>BLOCK_SIZE=256</code>, this worker handles elements 768-1023.</p>
+<p><strong>Second wall</strong>: Memory is not contiguous</p>
+<p>I assumed I could just do:</p>
+<p><code>weights = tl.load(weight_ptr + pid * BLOCK_SIZE)</code></p>
+<p>But NF4 weights are packed two 4-bit values per byte! So:</p>
+<ul>
+<li>256 weights = 128 bytes</li>
+<li>I need to load 128 bytes, then unpack them</li>
+</ul>
+
+<pre><code>weight_start = (pid * BLOCK_SIZE) // 2  # Divide by 2 for packing
+weights = tl.load(weight_ptr + weight_start + tl.arange(0, BLOCK_SIZE // 2))</code></pre>
+<p><strong>Third wall: The absmax mapping</strong></p>
+<p>Each 64 weights share one absmax. If I'm processing 256 weights, I need 4 absmax values.</p>
+<p>The index math:</p>
+
+<pre><code># Which absmax does my first weight use?
+absmax_start_idx = (pid * BLOCK_SIZE) // 64</code></pre>
+<p>But here's the kicker: those absmax values are also quantized! Each needs to be dequantized using state2.</p>
+<p>I realized the kernel needs to:</p>
+<ol>
+<li>Figure out which state2.absmax block I'm in</li>
+<li>Load that one float32 value</li>
+<li>Use it to dequantize my 4 absmax values on-the-fly</li>
+<li>Use those to dequantize my 256 weights</li>
+</ol>
+<p>All without creating intermediate buffers.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id='Version-1:-"It-compiles!-Ship-it!"'>
+<a class="anchor" href="#Version-1:-" it-compiles aria-hidden="true"><span class="octicon octicon-link"></span></a>Version 1: "It compiles! Ship it!"<a class="anchor-link" href="#Version-1:-%22It-compiles!-Ship-it!%22"> </a>
+</h2>
+<pre><code>@triton.jit
+def nf4_dequant_v1(weight_ptr, absmax_ptr, code_ptr, output_ptr, ...):
+    pid = tl.program_id(0)
+
+    # Load weights
+    weights = tl.load(weight_ptr + pid * 256)
+
+    # Unpack 4-bit values
+    high = (weights &gt;&gt; 4) &amp; 0xF
+    low = weights &amp; 0xF
+
+    # Lookup in codebook
+    high_float = tl.load(code_ptr + high)
+    low_float = tl.load(code_ptr + low)
+
+    # Store (somehow?)
+    tl.store(output_ptr + ???, ???)</code></pre>
+<p>Result: Compilation error. I forgot weights are packed, need to load half as many bytes!</p>
+<p>Lesson learned: GPU memory layout matters. A lot.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id='Version-2:-"Fixed-the-packing!"'>
+<a class="anchor" href="#Version-2:-" fixed-the-packing aria-hidden="true"><span class="octicon octicon-link"></span></a>Version 2: "Fixed the packing!"<a class="anchor-link" href="#Version-2:-%22Fixed-the-packing!%22"> </a>
+</h2>
+<pre><code>weight_start = (pid * BLOCK_SIZE) // 2  # Aha! Divide by 2
+weights = tl.load(weight_ptr + weight_start + tl.arange(0, BLOCK_SIZE // 2))
+
+high = (weights &gt;&gt; 4) &amp; 0xF
+low = weights &amp; 0xF</code></pre>
+<p>Result: Compiled! But got 100% mismatch with Unsloth.</p>
+<p>The bug: I was storing high/low weights in the wrong order. The interleaving was backwards!</p>
+
+<pre><code># Wrong:
+tl.store(output_ptr + offsets, low_weights)
+tl.store(output_ptr + offsets + 1, high_weights)
+
+# Right:
+tl.store(output_ptr + offsets, high_weights)
+tl.store(output_ptr + offsets + 1, low_weights)</code></pre>
+<p>Lesson learned: Bit ordering is not intuitive. Test with small examples first!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id='Version-3:-"The-absmax-mystery"'>
+<a class="anchor" href="#Version-3:-" the-absmax-mystery aria-hidden="true"><span class="octicon octicon-link"></span></a>Version 3: "The absmax mystery"<a class="anchor-link" href="#Version-3:-%22The-absmax-mystery%22"> </a>
+</h2>
+<p>Now I needed to handle the absmax values. Each 64 weights share one absmax:</p>
+
+<pre><code>absmax_start_idx = (pid * BLOCK_SIZE) // 64
+# Load 4 absmax values (256 weights / 64 = 4)
+absmax_values = tl.load(absmax_ptr + absmax_start_idx + tl.arange(0, 4))</code></pre>
+<p>These absmax values are also quantized as uint8.
+Result: Values were 100x too small. I was using the uint8 values directly instead of dequantizing them.</p>
+<p><strong>Lesson learned</strong>: Read the spec carefully. Double quantization means double work.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id='Version-4:-"The-state2-revelation"'>
+<a class="anchor" href="#Version-4:-" the-state2-revelation aria-hidden="true"><span class="octicon octicon-link"></span></a>Version 4: "The state2 revelation"<a class="anchor-link" href="#Version-4:-%22The-state2-revelation%22"> </a>
+</h2>
+<p>I needed to dequantize the absmax values:</p>
+
+<pre><code># First attempt - wrong!
+absmax_float = absmax_uint8 / 255.0 * state2_absmax</code></pre>
+<p>Result: Still wrong. Values were negative (absmax should always be positive!)</p>
+<p>The bug: I was missing the offset and using the wrong formula. The correct approach:</p>
+
+<pre><code>absmax_float = tl.load(state2_code_ptr + absmax_uint8) * state2_absmax + offset</code></pre>
+<p>That state2.code lookup was the key. And the offset shifts the range.</p>
+<p><strong>Lesson learned:</strong> Quantization schemes have subtle details. Every parameter matters.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id='Version-5:-"So-close!-Only-7-errors..."'>
+<a class="anchor" href="#Version-5:-" so-close aria-hidden="true"><span class="octicon octicon-link"></span></a>Version 5: "So close! Only 7 errors..."<a class="anchor-link" href="#Version-5:-%22So-close!-Only-7-errors...%22"> </a>
+</h2>
+<pre><code>Mismatched elements: 7 / 13,651,968 (0.0%)
+Greatest absolute difference: 1.14e-05 (just over 1e-05 tolerance!)</code></pre>
+<p>The bug: I was casting everything to float32 for "better precision":</p>
+
+<pre><code>high_weight_float = tl.load(code_ptr + high_weight).to(tl.float32)</code></pre>
+<p>But Unsloth doesn't do this! Removing the casts:</p>
+
+<pre><code>high_weight_float = tl.load(code_ptr + high_weight)  # Keep native dtype</code></pre>
+<p>Result: Down to 1 error out of 58 million elements!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id='Version-6:-"The-optimization-phase"'>
+<a class="anchor" href="#Version-6:-" the-optimization-phase aria-hidden="true"><span class="octicon octicon-link"></span></a>Version 6: "The optimization phase"<a class="anchor-link" href="#Version-6:-%22The-optimization-phase%22"> </a>
+</h2>
+<p>With correctness achieved, time to optimize. Added tl.gather for codebook lookups:</p>
+
+<pre><code># Load codebook once into registers
+codebook = tl.load(code_ptr + tl.arange(0, 16))
+
+# Gather from it (faster than scattered loads)
+high_weight_float = tl.gather(codebook, high_weight, axis=0)</code></pre>
+<p>Result: 1.55x speedup over Unsloth!</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="The-Final-Kernel:-A-Guided-Tour">
+<a class="anchor" href="#The-Final-Kernel:-A-Guided-Tour" aria-hidden="true"><span class="octicon octicon-link"></span></a>The Final Kernel: A Guided Tour<a class="anchor-link" href="#The-Final-Kernel:-A-Guided-Tour"> </a>
+</h2>
+<pre><code>@triton.jit
+def nf4_dequant_kernel(
+    weight_ptr,           # Packed 4-bit weights (uint8)
+    absmax_ptr,           # Quantized absmax values (uint8)
+    code_ptr,             # NF4 codebook (16 float values)
+    state2_absmax_ptr,    # Scale factors for absmax
+    state2_code_ptr,      # Codebook for absmax
+    offset,               # Offset for absmax dequantization
+    output_ptr,           # Dequantized weights output
+    N,                    # Total number of weights
+    BLOCK_SIZE: tl.constexpr,
+):
+    pid = tl.program_id(0)
+
+    # Load NF4 codebook into registers
+    codebook = tl.load(code_ptr + tl.arange(0, 16))
+
+    # Calculate absmax indices
+    absmax_start_idx = (pid * BLOCK_SIZE) // 64
+    state2_idx = absmax_start_idx // 256
+
+    # Load state2.absmax
+    state2_absmax = tl.load(state2_absmax_ptr + state2_idx)
+
+    # Load packed weights
+    weight_start = (pid * BLOCK_SIZE) // 2
+    weights = tl.load(weight_ptr + weight_start + tl.arange(0, BLOCK_SIZE // 2))
+
+    # Unpack 4-bit values
+    high_weight = (weights &gt;&gt; 4) &amp; 0xF
+    lower_weight = weights &amp; 0xF
+
+    # Lookup in NF4 codebook
+    high_weight_float = tl.gather(codebook, high_weight, axis=0)
+    lower_weight_float = tl.gather(codebook, lower_weight, axis=0)
+
+    # Dequantize absmax values
+    byte_indices = tl.arange(0, BLOCK_SIZE // 2)
+    global_absmax_idx = absmax_start_idx + (byte_indices // 32)
+    absmax_uint8 = tl.load(absmax_ptr + global_absmax_idx)
+    absmax_float = tl.load(state2_code_ptr + absmax_uint8) * state2_absmax + offset
+
+    # Apply scale factors
+    dequant_high = high_weight_float * absmax_float
+    dequant_low = lower_weight_float * absmax_float
+
+    # Store interleaved results
+    output_offsets = (pid * BLOCK_SIZE) + 2 * tl.arange(0, BLOCK_SIZE // 2)
+    tl.store(output_ptr + output_offsets, dequant_high)
+    tl.store(output_ptr + output_offsets + 1, dequant_low)</code></pre>
+<p>Part 1: The Codebook Optimization</p>
+<p><code>codebook = tl.load(code_ptr + tl.arange(0, 16))</code></p>
+<p>Why this matters: The NF4 codebook is only 16 values, but we'll access it 256 times (once per weight in this block). Loading it once into registers is ~20x faster than hitting global memory repeatedly.</p>
+<p>The alternative: tl.load(code_ptr + index) for each weight would cause 256 scattered memory accesses.</p>
+<p>Part 2: The Index Math</p>
+
+<pre><code>absmax_start_idx = (pid * BLOCK_SIZE) // 64
+state2_idx = absmax_start_idx // 256</code></pre>
+
+<pre><code>Program 0: weights [0-255]    → absmax [0-3]    → state2[0]
+Program 1: weights [256-511]  → absmax [4-7]    → state2[0]
+Program 2: weights [512-767]  → absmax [8-11]   → state2[0]
+Program 3: weights [768-1023] → absmax [12-15]  → state2[0]</code></pre>
+<p><strong>Key insight:</strong> Multiple programs can share the same state2.absmax value. We calculate which one we need, load it once, and reuse it.</p>
+<p>Part 3: The Unpacking</p>
+
+<pre><code>high_weight = (weights &gt;&gt; 4) &amp; 0xF
+lower_weight = weights &amp; 0xF</code></pre>
+
+<pre><code>Byte: 10110011
+      ││││││││
+      ││││└┴┴┴─→ low nibble  (0011 = 3)
+      └┴┴┴────→ high nibble (1011 = 11)</code></pre>
+<p>This is why we loaded BLOCK_SIZE // 2 bytes—each byte gives us 2 weights.</p>
+<p>Part 4: The Gather Operation</p>
+<p><code>high_weight_float = tl.gather(codebook, high_weight, axis=0)</code></p>
+<p>What's happening:</p>
+<ul>
+<li>high_weight is an array: [3, 11, 5, 14, ...] (128 values)</li>
+<li>codebook is an array: [-1.0, -0.70, ..., 1.0] (16 values)</li>
+<li>gather looks up: [codebook[3], codebook[11], codebook[5], ...]</li>
+</ul>
+<p><strong>Why it's fast:</strong> All 128 lookups happen in parallel, reading from registers instead of memory.</p>
+<p>Part 5: The Double Dequantization</p>
+
+<pre><code>global_absmax_idx = absmax_start_idx + (byte_indices // 32)
+absmax_uint8 = tl.load(absmax_ptr + global_absmax_idx)
+absmax_float = tl.load(state2_code_ptr + absmax_uint8) * state2_absmax + offset</code></pre>
+<p>Step 1: Figure out which absmax each byte needs</p>
+<ul>
+<li>Bytes 0-31 use absmax[absmax_start_idx]</li>
+<li>Bytes 32-63 use absmax[absmax_start_idx + 1]</li>
+<li>Bytes 64-95 use absmax[absmax_start_idx + 2]</li>
+<li>Bytes 96-127 use absmax[absmax_start_idx + 3]</li>
+</ul>
+<p>Step 2: Load those 4 absmax values (they're uint8)</p>
+<p>Step 3: Dequantize them:</p>
+<p><code>absmax_float = state2.code[absmax_uint8] * state2.absmax + offset</code></p>
+<p>This is the 'double' in double quantization—we're dequantizing the scale factors themselves!</p>
+<p>Part 6: The Final Multiplication</p>
+
+<pre><code>dequant_high = high_weight_float * absmax_float
+dequant_low = lower_weight_float * absmax_float</code></pre>
+<p>What's happening element-wise:</p>
+
+<pre><code>dequant_high[0] = codebook[high_weight[0]] * absmax_float[0]
+dequant_high[1] = codebook[high_weight[1]] * absmax_float[1]
+...</code></pre>
+<p>Each weight gets multiplied by its corresponding absmax scale factor.</p>
+<p>Part 7: The Interleaved Store</p>
+
+<pre><code>output_offsets = (pid * BLOCK_SIZE) + 2 * tl.arange(0, BLOCK_SIZE // 2)
+tl.store(output_ptr + output_offsets, dequant_high)
+tl.store(output_ptr + output_offsets + 1, dequant_low)</code></pre>
+<p>Memory layout:</p>
+
+<pre><code>Byte 0 → [high[0], low[0]]
+Byte 1 → [high[1], low[1]]
+Byte 2 → [high[2], low[2]]</code></pre>
+<p>Why two stores: We're writing to even positions (0, 2, 4...) and odd positions (1, 3, 5...) separately. This matches how the weights were originally packed.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h1 id="What-We-Learned">
+<a class="anchor" href="#What-We-Learned" aria-hidden="true"><span class="octicon octicon-link"></span></a>What We Learned<a class="anchor-link" href="#What-We-Learned"> </a>
+</h1>
+<p>The key insights:</p>
+<ol>
+<li>
+<p>Quantization is compression with structure - NF4 isn't random. Every design choice (4 bits, block size of 64, double quantization) comes from balancing memory, accuracy, and compute.</p>
+</li>
+<li>
+<p>GPU programming is about thinking in parallel - Not "how do I process this element?" but "how do 10,000 workers process 10,000 elements simultaneously?"</p>
+</li>
+<li>
+<p>Memory is the bottleneck - Our speedup didn't come from faster math. It came from loading the codebook once instead of 256 times. On GPUs, arithmetic is free; memory access is expensive.</p>
+</li>
+<li>
+<p>Precision is a choice, not a default - Casting to float32 made things slower and less accurate. Sometimes the "obvious" optimization is wrong.</p>
+</li>
+</ol>
+<p>Every abstraction: Triton, PyTorch, even Python—is hiding complexity. When you need performance, you have to peek under the hood. Not to reject the abstractions, but to use them wisely.</p>
+
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered">
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h2 id="Resources">
+<a class="anchor" href="#Resources" aria-hidden="true"><span class="octicon octicon-link"></span></a>Resources<a class="anchor-link" href="#Resources"> </a>
+</h2>
+<ul>
+<li><a href="https://colab.research.google.com/drive/1r10uQ-RdZZmMq4tgynZA7d7bJb-PztDJ?usp=sharing">Complete script</a></li>
+</ul>
+
+</div>
+</div>
+</div>
+</div>
+
+
+
+  </div><!-- from https://github.com/utterance/utterances -->
+<script src="https://utteranc.es/client.js"
+        repo="numb3r33/experiments"
+        issue-term="title"
+        label="blogpost-comment"
+        theme="github-light"
+        crossorigin="anonymous"
+        async>
+</script><a class="u-url" href="/experiments/deeplearning/unsloth/triton/gpu/2025/12/21/unsloth-triton-kernels.html" hidden></a>
+</article>
+
+      </div>
+    </main><footer class="site-footer h-card">
+  <data class="u-url" href="/experiments/"></data>
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col">
+        <p class="feed-subscribe">
+          <a href="/experiments/feed.xml">
+            <svg class="svg-icon orange">
+              <use xlink:href="/experiments/assets/minima-social-icons.svg#rss"></use>
+            </svg><span>Subscribe</span>
+          </a>
+        </p>
+      </div>
+      <div class="footer-col">
+        <p>Notes on all experiments and learnings.</p>
+      </div>
+    </div>
+
+    <div class="social-links"><ul class="social-media-list"><li><a rel="me" href="https://github.com/numb3r33" target="_blank" title="numb3r33"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#github"></use></svg></a></li><li><a rel="me" href="https://twitter.com/asreddevils" target="_blank" title="asreddevils"><svg class="svg-icon grey"><use xlink:href="/experiments/assets/minima-social-icons.svg#twitter"></use></svg></a></li></ul>
+</div>
+
+  </div>
+
+</footer>
+</body>
+
+</html>
